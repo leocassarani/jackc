@@ -74,6 +74,10 @@ fn is_symbol(ch: char) -> bool {
     ALL_SYMBOLS.contains(&ch)
 }
 
+fn is_identifier(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
+}
+
 pub struct Tokenizer<'a> {
     chars: Peekable<Chars<'a>>,
 }
@@ -92,13 +96,21 @@ impl<'a> Iterator for Tokenizer<'a> {
         self.skip_whitespace();
 
         self.read_char().and_then(|ch| match ch {
+            '/' => {
+                if self.skip_comment() {
+                    // If we've skipped a comment, call next() recursively to move on to the
+                    // next token and pretend the comment wasn't there.
+                    self.next()
+                } else {
+                    Some(Token::Symbol(ch))
+                }
+            }
             '"' => self.read_str_const().map(Token::StrConst),
             _ if is_symbol(ch) => Some(Token::Symbol(ch)),
             _ if ch.is_ascii_digit() => self.read_int_const(ch).map(Token::IntConst),
-            _ if ch.is_ascii_alphabetic() => self.read_word(ch).map(|word| {
-                word.parse::<Keyword>()
-                    .map_or(Token::Identifier(word), Token::Keyword)
-            }),
+            _ if is_identifier(ch) => self
+                .read_word(ch)
+                .map(|word| word.parse().map_or(Token::Identifier(word), Token::Keyword)),
             _ => None,
         })
     }
@@ -115,11 +127,29 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    fn skip_comment(&mut self) -> bool {
+        match self.peek_char() {
+            Some('/') => {
+                self.skip_line();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn skip_line(&mut self) {
+        while let Some(ch) = self.read_char() {
+            if ch == '\n' {
+                return;
+            }
+        }
+    }
+
     fn read_word(&mut self, ch: char) -> Option<String> {
         let mut word = ch.to_string();
 
         while let Some(ch) = self.peek_char() {
-            if ch.is_alphabetic() {
+            if is_identifier(ch) {
                 word.push(ch);
                 self.advance();
             } else {

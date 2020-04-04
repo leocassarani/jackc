@@ -1,6 +1,5 @@
-use std::{env, fs, io};
-
 use jackc::jack::Tokenizer;
+use std::{env, fs, io};
 
 fn main() -> io::Result<()> {
     let filename = env::args().skip(1).next().expect("missing filename");
