@@ -66,18 +66,6 @@ impl FromStr for Keyword {
     }
 }
 
-const ALL_SYMBOLS: &[char] = &[
-    '{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&', ',', '<', '>', '=', '~',
-];
-
-fn is_symbol(ch: char) -> bool {
-    ALL_SYMBOLS.contains(&ch)
-}
-
-fn is_identifier(ch: char) -> bool {
-    ch.is_ascii_alphabetic() || ch == '_'
-}
-
 pub struct Tokenizer<'a> {
     chars: Peekable<Chars<'a>>,
 }
@@ -108,9 +96,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             '"' => self.read_str_const().map(Token::StrConst),
             _ if is_symbol(ch) => Some(Token::Symbol(ch)),
             _ if ch.is_ascii_digit() => self.read_int_const(ch).map(Token::IntConst),
-            _ if is_identifier(ch) => self
-                .read_word(ch)
-                .map(|word| word.parse().map_or(Token::Identifier(word), Token::Keyword)),
+            _ if is_identifier(ch) => self.read_word(ch).map(parse_keyword_or_identifier),
             _ => None,
         })
     }
@@ -133,6 +119,10 @@ impl<'a> Tokenizer<'a> {
                 self.skip_line();
                 true
             }
+            Some('*') => {
+                self.skip_block_comment();
+                true
+            }
             _ => false,
         }
     }
@@ -141,6 +131,18 @@ impl<'a> Tokenizer<'a> {
         while let Some(ch) = self.read_char() {
             if ch == '\n' {
                 return;
+            }
+        }
+    }
+
+    fn skip_block_comment(&mut self) {
+        let mut star = false;
+
+        while let Some(ch) = self.read_char() {
+            match ch {
+                '/' if star => return,
+                '*' => star = true,
+                _ => star = false,
             }
         }
     }
@@ -199,4 +201,21 @@ impl<'a> Tokenizer<'a> {
     fn read_char(&mut self) -> Option<char> {
         self.chars.next()
     }
+}
+
+const ALL_SYMBOLS: &[char] = &[
+    '{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&', ',', '<', '>', '=', '~',
+];
+
+fn is_symbol(ch: char) -> bool {
+    ALL_SYMBOLS.contains(&ch)
+}
+
+fn is_identifier(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
+}
+
+fn parse_keyword_or_identifier(word: String) -> Token {
+    word.parse::<Keyword>()
+        .map_or(Token::Identifier(word), Token::Keyword)
 }
