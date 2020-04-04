@@ -1,11 +1,10 @@
-use std::{fs, io};
+use std::{env, fs, io};
 
-mod tokenizer;
-
-use tokenizer::Tokenizer;
+use jackc::jack::Tokenizer;
 
 fn main() -> io::Result<()> {
-    let source = fs::read_to_string("ArrayTest.jack")?;
+    let filename = env::args().skip(1).next().expect("missing filename");
+    let source = fs::read_to_string(filename)?;
     let tokenizer = Tokenizer::new(&source);
 
     for token in tokenizer {

@@ -66,7 +66,15 @@ impl FromStr for Keyword {
     }
 }
 
-pub(crate) struct Tokenizer<'a> {
+const ALL_SYMBOLS: &[char] = &[
+    '{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/', '&', ',', '<', '>', '=', '~',
+];
+
+fn is_symbol(ch: char) -> bool {
+    ALL_SYMBOLS.contains(&ch)
+}
+
+pub struct Tokenizer<'a> {
     chars: Peekable<Chars<'a>>,
 }
 
@@ -84,18 +92,13 @@ impl<'a> Iterator for Tokenizer<'a> {
         self.skip_whitespace();
 
         self.read_char().and_then(|ch| match ch {
-            '{' | '}' | '(' | ')' | '[' | ']' | '.' | ',' | ';' | '+' | '-' | '*' | '/' | '&'
-            | '|' | '<' | '>' | '=' | '~' => Some(Token::Symbol(ch)),
-
             '"' => self.read_str_const().map(Token::StrConst),
-
+            _ if is_symbol(ch) => Some(Token::Symbol(ch)),
             _ if ch.is_ascii_digit() => self.read_int_const(ch).map(Token::IntConst),
-
-            _ if ch.is_alphabetic() => self.read_word(ch).map(|word| {
+            _ if ch.is_ascii_alphabetic() => self.read_word(ch).map(|word| {
                 word.parse::<Keyword>()
                     .map_or(Token::Identifier(word), Token::Keyword)
             }),
-
             _ => None,
         })
     }
