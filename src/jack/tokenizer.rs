@@ -147,21 +147,6 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn read_word(&mut self, ch: char) -> Option<String> {
-        let mut word = ch.to_string();
-
-        while let Some(ch) = self.peek_char() {
-            if is_identifier(ch) {
-                word.push(ch);
-                self.advance();
-            } else {
-                break;
-            }
-        }
-
-        Some(word)
-    }
-
     fn read_str_const(&mut self) -> Option<String> {
         let mut string = String::new();
 
@@ -175,19 +160,31 @@ impl<'a> Tokenizer<'a> {
         None
     }
 
-    fn read_int_const(&mut self, ch: char) -> Option<i16> {
-        let mut num = ch.to_string();
+    fn read_word(&mut self, first: char) -> Option<String> {
+        self.read_while(first, is_identifier)
+    }
+
+    fn read_int_const(&mut self, first: char) -> Option<i16> {
+        self.read_while(first, |ch| ch.is_ascii_digit())
+            .and_then(|num| num.parse().ok())
+    }
+
+    fn read_while<P>(&mut self, first: char, pred: P) -> Option<String>
+    where
+        P: Fn(char) -> bool,
+    {
+        let mut string = first.to_string();
 
         while let Some(ch) = self.peek_char() {
-            if ch.is_ascii_digit() {
-                num.push(ch);
+            if pred(ch) {
+                string.push(ch);
                 self.advance();
             } else {
                 break;
             }
         }
 
-        num.parse().ok()
+        Some(string)
     }
 
     fn peek_char(&mut self) -> Option<char> {
