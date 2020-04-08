@@ -10,7 +10,7 @@ pub enum Token {
     Symbol(char),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Keyword {
     Boolean,
     Char,
