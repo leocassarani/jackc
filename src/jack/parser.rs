@@ -50,7 +50,7 @@ pub struct SubroutineCall {
     pub args: Vec<Expr>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ClassVarKind {
     Field,
     Static,
@@ -167,7 +167,7 @@ pub enum Expr {
     Binary(BinaryOp, Term, Box<Expr>),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum KeywordConst {
     True,
     False,
@@ -189,7 +189,7 @@ impl TryFrom<Keyword> for KeywordConst {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum UnaryOp {
     Minus,
     Not,
@@ -207,7 +207,7 @@ impl TryFrom<Token> for UnaryOp {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum BinaryOp {
     Add,
     Subtract,

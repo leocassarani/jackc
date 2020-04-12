@@ -1,4 +1,4 @@
-use jackc::jack::{Parser, Tokenizer};
+use jackc::jack::{Compiler, Parser, Tokenizer};
 use std::{env, fs, io};
 
 fn main() -> io::Result<()> {
@@ -7,8 +7,10 @@ fn main() -> io::Result<()> {
 
     let tokenizer = Tokenizer::new(&source);
     let mut parser = Parser::new(tokenizer);
+    let class = parser.parse().expect("parsing error");
 
-    println!("{:?}", parser.parse());
+    let compiler = Compiler::new(class);
+    println!("{:?}", compiler.compile());
 
     Ok(())
 }
