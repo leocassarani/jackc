@@ -1,0 +1,34 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/11/ConvertToBin/Main.jack
+
+/**
+ * Unpacks a 16-bit number into its binary representation:
+ * Takes the 16-bit number stored in RAM[8000] and stores its individual
+ * bits in RAM[8001..8016] (each location will contain 0 or 1).
+ * Before the conversion, RAM[8001]..RAM[8016] are initialized to -1.
+ *
+ * The program should be tested as follows:
+ * 1) Load the program into the supplied VM emulator
+ * 2) Put some value in RAM[8000]
+ * 3) Switch to "no animation"
+ * 4) Run the program (give it enough time to run)
+ * 5) Stop the program
+ * 6) Check that RAM[8001]..RAM[8016] contains the correct binary result, and
+ *    that none of these memory locations contains -1.
+ */
+class Main {
+
+    /**
+     * Initializes RAM[8001]..RAM[8016] to -1,
+     * and converts the value in RAM[8000] to binary.
+     */
+    function void main() {
+        var int value;
+        do Main.fillMemory(8001, 16, -1); // sets RAM[8001]..RAM[8016] to -1
+        let value = Memory.peek(8000);    // reads a value from RAM[8000]
+        do Main.convert(value);           // performs the conversion
+        return;
+    }
+}
