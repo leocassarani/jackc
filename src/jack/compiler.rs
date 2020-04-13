@@ -5,12 +5,14 @@ use std::iter;
 
 pub struct Compiler {
     symbols: SymbolTable,
+    labels: u16,
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Compiler {
             symbols: SymbolTable::new(),
+            labels: 0,
         }
     }
 
@@ -24,6 +26,7 @@ impl Compiler {
 
     fn compile_subroutine(&mut self, class: &Class, sub: &Subroutine) -> Vec<vm::Command> {
         self.symbols.start_subroutine();
+        self.labels = 0;
 
         for param in &sub.params {
             self.symbols
@@ -31,28 +34,29 @@ impl Compiler {
         }
 
         let name = format!("{}.{}", class.name, sub.name);
-        let locals = &sub.body.vars;
+        let mut locals: u16 = 0;
 
-        for vars in locals {
+        for vars in &sub.body.vars {
             for name in &vars.names {
+                locals += 1;
                 self.symbols
                     .define(name.clone(), Type::from(&vars.typ), Kind::LocalVar);
             }
         }
 
-        iter::once(vm::Command::Function(name, locals.len() as u16))
+        iter::once(vm::Command::Function(name, locals))
             .chain(self.compile_statements(&sub.body.statements))
             .collect()
     }
 
-    fn compile_statements(&self, stmts: &[Statement]) -> Vec<vm::Command> {
+    fn compile_statements(&mut self, stmts: &[Statement]) -> Vec<vm::Command> {
         stmts
             .iter()
             .flat_map(|stmt| self.compile_statement(stmt))
             .collect()
     }
 
-    fn compile_statement(&self, stmt: &Statement) -> Vec<vm::Command> {
+    fn compile_statement(&mut self, stmt: &Statement) -> Vec<vm::Command> {
         match stmt {
             Statement::Let { lhs, index, rhs } => self.compile_let(lhs, index.as_ref(), rhs),
             Statement::If {
@@ -73,17 +77,18 @@ impl Compiler {
     }
 
     fn compile_if(
-        &self,
+        &mut self,
         condition: &Expr,
         if_body: &[Statement],
         else_body: Option<&Vec<Statement>>,
     ) -> Vec<vm::Command> {
+        let (lab_true, lab_false, lab_end) = self.generate_labels("IF");
         let mut cmds = self.compile_expr(condition);
 
         cmds.extend(vec![
-            vm::Command::IfGoto("IF_TRUE0".to_string()),
-            vm::Command::Goto("IF_FALSE0".to_string()),
-            vm::Command::Label("IF_TRUE0".to_string()),
+            vm::Command::IfGoto(lab_true.clone()),
+            vm::Command::Goto(lab_false.clone()),
+            vm::Command::Label(lab_true.clone()),
         ]);
 
         cmds.extend(self.compile_statements(if_body));
@@ -91,21 +96,31 @@ impl Compiler {
         match else_body {
             Some(body) => {
                 cmds.extend(vec![
-                    vm::Command::Goto("IF_END0".to_string()),
-                    vm::Command::Label("IF_FALSE0".to_string()),
+                    vm::Command::Goto(lab_end.clone()),
+                    vm::Command::Label(lab_false.clone()),
                 ]);
                 cmds.extend(self.compile_statements(body));
-                cmds.push(vm::Command::Label("IF_END0".to_string()));
+                cmds.push(vm::Command::Label(lab_end.clone()));
             }
             None => {
-                cmds.push(vm::Command::Label("IF_FALSE0".to_string()));
+                cmds.push(vm::Command::Label(lab_false.clone()));
             }
         }
 
         cmds
     }
 
-    fn compile_while(&self, condition: &Expr, body: &[Statement]) -> Vec<vm::Command> {
+    fn generate_labels(&mut self, prefix: &str) -> (String, String, String) {
+        let labels = (
+            format!("{}_TRUE{}", prefix, self.labels),
+            format!("{}_FALSE{}", prefix, self.labels),
+            format!("{}_END{}", prefix, self.labels),
+        );
+        self.labels += 1;
+        labels
+    }
+
+    fn compile_while(&mut self, condition: &Expr, body: &[Statement]) -> Vec<vm::Command> {
         let mut cmds = vec![vm::Command::Label("WHILE_EXP0".to_owned())];
         cmds.extend(self.compile_expr(condition));
         cmds.extend(vec![
@@ -162,7 +177,8 @@ impl Compiler {
 
     fn compile_term(&self, term: &Term) -> Vec<vm::Command> {
         match term {
-            Term::IntConst(n) => vec![vm::Command::Push(vm::Segment::Constant, *n as u16)],
+            Term::IntConst(n) => self.compile_int_const(*n),
+            Term::KeywordConst(kw) => self.compile_keyword(kw),
             Term::Var(name) => self.compile_var_read(name),
             Term::SubroutineCall(call) => self.compile_subroutine_call(call),
             Term::Bracketed(expr) => self.compile_expr(expr),
@@ -170,6 +186,23 @@ impl Compiler {
                 let mut cmds = self.compile_term(subterm);
                 cmds.push(self.compile_unary_op(*op));
                 cmds
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    fn compile_int_const(&self, n: i16) -> Vec<vm::Command> {
+        vec![vm::Command::Push(vm::Segment::Constant, n as u16)]
+    }
+
+    fn compile_keyword(&self, kw: &KeywordConst) -> Vec<vm::Command> {
+        match kw {
+            KeywordConst::True => vec![
+                vm::Command::Push(vm::Segment::Constant, 1),
+                vm::Command::Neg,
+            ],
+            KeywordConst::False | KeywordConst::Null => {
+                vec![vm::Command::Push(vm::Segment::Constant, 0)]
             }
             _ => unimplemented!(),
         }
@@ -200,6 +233,7 @@ impl Compiler {
             BinaryOp::Add => vm::Command::Add,
             BinaryOp::Subtract => vm::Command::Sub,
             BinaryOp::Multiply => vm::Command::Call("Math.multiply".to_string(), 2),
+            BinaryOp::And => vm::Command::And,
             BinaryOp::GreaterThan => vm::Command::Gt,
             BinaryOp::Equal => vm::Command::Eq,
             _ => unimplemented!(),
