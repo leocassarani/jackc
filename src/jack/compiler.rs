@@ -111,9 +111,22 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_let(&self, lhs: &str, _index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
+    fn compile_let(&self, lhs: &str, index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
         let mut cmds = self.compile_expr(rhs);
-        cmds.push(self.compile_var(vm::Command::Pop, lhs));
+
+        match index {
+            Some(expr) => {
+                cmds.push(self.compile_var(vm::Command::Push, lhs));
+                cmds.extend(self.compile_expr(expr));
+                cmds.extend(vec![
+                    vm::Command::Add,
+                    vm::Command::Pop(vm::Segment::Pointer, 1),
+                    vm::Command::Pop(vm::Segment::That, 0),
+                ]);
+            }
+            None => cmds.push(self.compile_var(vm::Command::Pop, lhs)),
+        }
+
         cmds
     }
 
@@ -244,17 +257,36 @@ impl<'a> Compiler<'a> {
     fn compile_term(&self, term: &Term) -> Vec<vm::Command> {
         match term {
             Term::IntConst(n) => vec![self.compile_int_const(*n)],
+            Term::StrConst(s) => self.compile_str_const(s),
             Term::KeywordConst(kw) => self.compile_keyword(kw),
             Term::Var(name) => vec![self.compile_var(vm::Command::Push, name)],
+            Term::IndexedVar(name, expr) => self.compile_indexed_var(name, expr),
             Term::SubroutineCall(call) => self.compile_subroutine_call(call),
             Term::Bracketed(expr) => self.compile_expr(expr),
             Term::Unary(op, subterm) => self.compile_unary(*op, subterm),
-            _ => unimplemented!(),
         }
     }
 
     fn compile_int_const(&self, n: i16) -> vm::Command {
         vm::Command::Push(vm::Segment::Constant, n as u16)
+    }
+
+    fn compile_str_const(&self, s: &str) -> Vec<vm::Command> {
+        let len = s.encode_utf16().count() as u16;
+
+        let mut cmds = vec![
+            vm::Command::Push(vm::Segment::Constant, len),
+            vm::Command::Call("String.new".to_owned(), 1),
+        ];
+
+        for ch in s.encode_utf16() {
+            cmds.extend(vec![
+                vm::Command::Push(vm::Segment::Constant, ch),
+                vm::Command::Call("String.appendChar".to_owned(), 2),
+            ]);
+        }
+
+        cmds
     }
 
     fn compile_keyword(&self, kw: &KeywordConst) -> Vec<vm::Command> {
@@ -286,6 +318,17 @@ impl<'a> Compiler<'a> {
         f(segment, symbol.index)
     }
 
+    fn compile_indexed_var(&self, name: &str, expr: &Expr) -> Vec<vm::Command> {
+        let mut cmds = vec![self.compile_var(vm::Command::Push, name)];
+        cmds.extend(self.compile_expr(expr));
+        cmds.extend(vec![
+            vm::Command::Add,
+            vm::Command::Pop(vm::Segment::Pointer, 1),
+            vm::Command::Push(vm::Segment::That, 0),
+        ]);
+        cmds
+    }
+
     fn compile_unary(&self, op: UnaryOp, term: &Term) -> Vec<vm::Command> {
         let mut cmds = self.compile_term(term);
         cmds.push(self.compile_unary_op(op));
@@ -297,6 +340,7 @@ impl<'a> Compiler<'a> {
             BinaryOp::Add => vm::Command::Add,
             BinaryOp::Subtract => vm::Command::Sub,
             BinaryOp::Multiply => vm::Command::Call("Math.multiply".to_owned(), 2),
+            BinaryOp::Divide => vm::Command::Call("Math.divide".to_owned(), 2),
             BinaryOp::And => vm::Command::And,
             BinaryOp::LessThan => vm::Command::Lt,
             BinaryOp::GreaterThan => vm::Command::Gt,
