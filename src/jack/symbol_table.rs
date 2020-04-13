@@ -1,4 +1,4 @@
-use super::parser::VarType;
+use super::parser::{ClassVarKind, VarType};
 use std::collections::HashMap;
 use std::convert::From;
 
@@ -29,6 +29,15 @@ pub enum Kind {
     LocalVar,
 }
 
+impl From<&ClassVarKind> for Kind {
+    fn from(kind: &ClassVarKind) -> Self {
+        match kind {
+            ClassVarKind::Field => Kind::Field,
+            ClassVarKind::Static => Kind::Static,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Symbol {
     pub name: String,
@@ -50,6 +59,12 @@ impl SymbolTable {
             locals: HashMap::new(),
             indices: HashMap::new(),
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.globals.clear();
+        self.locals.clear();
+        self.indices.clear();
     }
 
     pub fn start_subroutine(&mut self) {

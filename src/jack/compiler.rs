@@ -2,22 +2,33 @@ use super::parser::*;
 use super::symbol_table::{Kind, SymbolTable, Type};
 use crate::vm;
 use std::collections::HashMap;
-use std::iter;
 
-pub struct Compiler {
+pub struct Compiler<'a> {
     symbols: SymbolTable,
     labels: Labeller,
+    class_name: &'a str,
 }
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn new() -> Self {
         Compiler {
             symbols: SymbolTable::new(),
             labels: Labeller::new(),
+            class_name: "",
         }
     }
 
-    pub fn compile(&mut self, class: &Class) -> Vec<vm::Command> {
+    pub fn compile(&mut self, class: &'a Class) -> Vec<vm::Command> {
+        self.symbols.reset();
+        self.class_name = &class.name;
+
+        for vars in &class.vars {
+            for name in &vars.names {
+                self.symbols
+                    .define(name.clone(), Type::from(&vars.typ), Kind::from(&vars.kind));
+            }
+        }
+
         class
             .subs
             .iter()
@@ -34,20 +45,49 @@ impl Compiler {
                 .define(param.name.clone(), Type::from(&param.typ), Kind::Argument);
         }
 
-        let name = format!("{}.{}", class.name, sub.name);
-        let mut locals: u16 = 0;
-
         for vars in &sub.body.vars {
             for name in &vars.names {
-                locals += 1;
                 self.symbols
                     .define(name.clone(), Type::from(&vars.typ), Kind::LocalVar);
             }
         }
 
-        iter::once(vm::Command::Function(name, locals))
-            .chain(self.compile_statements(&sub.body.statements))
-            .collect()
+        let name = format!("{}.{}", class.name, sub.name);
+        let locals = sub
+            .body
+            .vars
+            .iter()
+            .map(|vars| vars.names.len() as u16)
+            .sum();
+
+        let mut cmds = vec![vm::Command::Function(name, locals)];
+
+        match sub.kind {
+            SubroutineKind::Constructor => {
+                let fields = class
+                    .vars
+                    .iter()
+                    .filter(|vars| vars.kind == ClassVarKind::Field)
+                    .map(|vars| vars.names.len() as u16)
+                    .sum();
+
+                cmds.extend(vec![
+                    vm::Command::Push(vm::Segment::Constant, fields),
+                    vm::Command::Call("Memory.alloc".to_owned(), 1),
+                    vm::Command::Pop(vm::Segment::Pointer, 0),
+                ]);
+            }
+            SubroutineKind::Method => {
+                cmds.extend(vec![
+                    vm::Command::Push(vm::Segment::Argument, 0),
+                    vm::Command::Pop(vm::Segment::Pointer, 0),
+                ]);
+            }
+            _ => {}
+        }
+
+        cmds.extend(self.compile_statements(&sub.body.statements));
+        cmds
     }
 
     fn compile_statements(&mut self, stmts: &[Statement]) -> Vec<vm::Command> {
@@ -73,7 +113,7 @@ impl Compiler {
 
     fn compile_let(&self, lhs: &str, _index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
         let mut cmds = self.compile_expr(rhs);
-        cmds.extend(self.compile_var_write(lhs));
+        cmds.push(self.compile_var(vm::Command::Pop, lhs));
         cmds
     }
 
@@ -151,16 +191,27 @@ impl Compiler {
     }
 
     fn compile_subroutine_call(&self, call: &SubroutineCall) -> Vec<vm::Command> {
-        let args = call.args.iter().flat_map(|arg| self.compile_expr(arg));
+        let mut cmds = Vec::new();
+        let mut args = call.args.len() as u16;
 
-        let mut name = match call.receiver.as_ref() {
-            Some(class) => format!("{}.", class),
-            _ => String::new(),
+        if call.receiver.is_none() {
+            cmds.push(vm::Command::Push(vm::Segment::Pointer, 0));
+            args += 1;
+        }
+
+        for arg in &call.args {
+            cmds.extend(self.compile_expr(arg));
+        }
+
+        let receiver = match call.receiver.as_ref() {
+            Some(recv) => recv,
+            None => self.class_name,
         };
-        name.push_str(&call.subroutine);
 
-        let jump = iter::once(vm::Command::Call(name, call.args.len() as u16));
-        args.chain(jump).collect()
+        let name = format!("{}.{}", receiver, &call.subroutine);
+        cmds.push(vm::Command::Call(name, args));
+
+        cmds
     }
 
     fn compile_expr(&self, expr: &Expr) -> Vec<vm::Command> {
@@ -177,22 +228,18 @@ impl Compiler {
 
     fn compile_term(&self, term: &Term) -> Vec<vm::Command> {
         match term {
-            Term::IntConst(n) => self.compile_int_const(*n),
+            Term::IntConst(n) => vec![self.compile_int_const(*n)],
             Term::KeywordConst(kw) => self.compile_keyword(kw),
-            Term::Var(name) => self.compile_var_read(name),
+            Term::Var(name) => vec![self.compile_var(vm::Command::Push, name)],
             Term::SubroutineCall(call) => self.compile_subroutine_call(call),
             Term::Bracketed(expr) => self.compile_expr(expr),
-            Term::Unary(op, subterm) => {
-                let mut cmds = self.compile_term(subterm);
-                cmds.push(self.compile_unary_op(*op));
-                cmds
-            }
+            Term::Unary(op, subterm) => self.compile_unary(*op, subterm),
             _ => unimplemented!(),
         }
     }
 
-    fn compile_int_const(&self, n: i16) -> Vec<vm::Command> {
-        vec![vm::Command::Push(vm::Segment::Constant, n as u16)]
+    fn compile_int_const(&self, n: i16) -> vm::Command {
+        vm::Command::Push(vm::Segment::Constant, n as u16)
     }
 
     fn compile_keyword(&self, kw: &KeywordConst) -> Vec<vm::Command> {
@@ -204,36 +251,39 @@ impl Compiler {
             KeywordConst::False | KeywordConst::Null => {
                 vec![vm::Command::Push(vm::Segment::Constant, 0)]
             }
-            _ => unimplemented!(),
+            KeywordConst::This => vec![vm::Command::Push(vm::Segment::Pointer, 0)],
         }
     }
 
-    fn compile_var_read(&self, name: &str) -> Vec<vm::Command> {
-        let symbol = self.symbols.get(&name).expect("undefined symbol");
+    fn compile_var<F>(&self, f: F, name: &str) -> vm::Command
+    where
+        F: Fn(vm::Segment, u16) -> vm::Command,
+    {
+        let symbol = self.symbols.get(name).expect("undefined symbol");
 
-        match symbol.kind {
-            Kind::Argument => vec![vm::Command::Push(vm::Segment::Argument, symbol.index)],
-            Kind::LocalVar => vec![vm::Command::Push(vm::Segment::Local, symbol.index)],
+        let segment = match symbol.kind {
+            Kind::Argument => vm::Segment::Argument,
+            Kind::LocalVar => vm::Segment::Local,
+            Kind::Field => vm::Segment::This,
             _ => unimplemented!(),
-        }
+        };
+
+        f(segment, symbol.index)
     }
 
-    fn compile_var_write(&self, name: &str) -> Vec<vm::Command> {
-        let symbol = self.symbols.get(&name).expect("undefined symbol");
-
-        match symbol.kind {
-            Kind::Argument => vec![vm::Command::Pop(vm::Segment::Argument, symbol.index)],
-            Kind::LocalVar => vec![vm::Command::Pop(vm::Segment::Local, symbol.index)],
-            _ => unimplemented!(),
-        }
+    fn compile_unary(&self, op: UnaryOp, term: &Term) -> Vec<vm::Command> {
+        let mut cmds = self.compile_term(term);
+        cmds.push(self.compile_unary_op(op));
+        cmds
     }
 
     fn compile_binary_op(&self, op: BinaryOp) -> vm::Command {
         match op {
             BinaryOp::Add => vm::Command::Add,
             BinaryOp::Subtract => vm::Command::Sub,
-            BinaryOp::Multiply => vm::Command::Call("Math.multiply".to_string(), 2),
+            BinaryOp::Multiply => vm::Command::Call("Math.multiply".to_owned(), 2),
             BinaryOp::And => vm::Command::And,
+            BinaryOp::LessThan => vm::Command::Lt,
             BinaryOp::GreaterThan => vm::Command::Gt,
             BinaryOp::Equal => vm::Command::Eq,
             _ => unimplemented!(),
