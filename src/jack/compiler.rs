@@ -1,18 +1,19 @@
 use super::parser::*;
 use super::symbol_table::{Kind, SymbolTable, Type};
 use crate::vm;
+use std::collections::HashMap;
 use std::iter;
 
 pub struct Compiler {
     symbols: SymbolTable,
-    labels: u16,
+    labels: Labeller,
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Compiler {
             symbols: SymbolTable::new(),
-            labels: 0,
+            labels: Labeller::new(),
         }
     }
 
@@ -26,7 +27,7 @@ impl Compiler {
 
     fn compile_subroutine(&mut self, class: &Class, sub: &Subroutine) -> Vec<vm::Command> {
         self.symbols.start_subroutine();
-        self.labels = 0;
+        self.labels.reset();
 
         for param in &sub.params {
             self.symbols
@@ -82,13 +83,16 @@ impl Compiler {
         if_body: &[Statement],
         else_body: Option<&Vec<Statement>>,
     ) -> Vec<vm::Command> {
-        let (lab_true, lab_false, lab_end) = self.generate_labels("IF");
+        let true_label = self.labels.generate("IF_TRUE");
+        let false_label = self.labels.generate("IF_FALSE");
+        let end_label = self.labels.generate("IF_END");
+
         let mut cmds = self.compile_expr(condition);
 
         cmds.extend(vec![
-            vm::Command::IfGoto(lab_true.clone()),
-            vm::Command::Goto(lab_false.clone()),
-            vm::Command::Label(lab_true.clone()),
+            vm::Command::IfGoto(true_label.clone()),
+            vm::Command::Goto(false_label.clone()),
+            vm::Command::Label(true_label.clone()),
         ]);
 
         cmds.extend(self.compile_statements(if_body));
@@ -96,42 +100,38 @@ impl Compiler {
         match else_body {
             Some(body) => {
                 cmds.extend(vec![
-                    vm::Command::Goto(lab_end.clone()),
-                    vm::Command::Label(lab_false.clone()),
+                    vm::Command::Goto(end_label.clone()),
+                    vm::Command::Label(false_label.clone()),
                 ]);
                 cmds.extend(self.compile_statements(body));
-                cmds.push(vm::Command::Label(lab_end.clone()));
+                cmds.push(vm::Command::Label(end_label.clone()));
             }
             None => {
-                cmds.push(vm::Command::Label(lab_false.clone()));
+                cmds.push(vm::Command::Label(false_label.clone()));
             }
         }
 
         cmds
     }
 
-    fn generate_labels(&mut self, prefix: &str) -> (String, String, String) {
-        let labels = (
-            format!("{}_TRUE{}", prefix, self.labels),
-            format!("{}_FALSE{}", prefix, self.labels),
-            format!("{}_END{}", prefix, self.labels),
-        );
-        self.labels += 1;
-        labels
-    }
-
     fn compile_while(&mut self, condition: &Expr, body: &[Statement]) -> Vec<vm::Command> {
-        let mut cmds = vec![vm::Command::Label("WHILE_EXP0".to_owned())];
+        let exp_label = self.labels.generate("WHILE_EXP");
+        let end_label = self.labels.generate("WHILE_END");
+
+        let mut cmds = vec![vm::Command::Label(exp_label.clone())];
+
         cmds.extend(self.compile_expr(condition));
         cmds.extend(vec![
             vm::Command::Not,
-            vm::Command::IfGoto("WHILE_END0".to_owned()),
+            vm::Command::IfGoto(end_label.clone()),
         ]);
+
         cmds.extend(self.compile_statements(body));
         cmds.extend(vec![
-            vm::Command::Goto("WHILE_EXP0".to_owned()),
-            vm::Command::Label("WHILE_END0".to_owned()),
+            vm::Command::Goto(exp_label.clone()),
+            vm::Command::Label(end_label.clone()),
         ]);
+
         cmds
     }
 
@@ -245,5 +245,28 @@ impl Compiler {
             UnaryOp::Minus => vm::Command::Neg,
             UnaryOp::Not => vm::Command::Not,
         }
+    }
+}
+
+struct Labeller {
+    labels: HashMap<&'static str, u16>,
+}
+
+impl Labeller {
+    fn new() -> Self {
+        Labeller {
+            labels: HashMap::new(),
+        }
+    }
+
+    fn generate(&mut self, prefix: &'static str) -> String {
+        let count = self.labels.entry(prefix).or_insert(0);
+        let label = format!("{}{}", prefix, *count);
+        *count += 1;
+        label
+    }
+
+    fn reset(&mut self) {
+        self.labels.clear();
     }
 }
