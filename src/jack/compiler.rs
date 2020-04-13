@@ -193,22 +193,37 @@ impl<'a> Compiler<'a> {
     fn compile_subroutine_call(&self, call: &SubroutineCall) -> Vec<vm::Command> {
         let mut cmds = Vec::new();
         let mut args = call.args.len() as u16;
+        let receiver: &str;
 
-        if call.receiver.is_none() {
-            cmds.push(vm::Command::Push(vm::Segment::Pointer, 0));
-            args += 1;
+        match call.receiver.as_ref() {
+            Some(recv) => match self.symbols.get(recv) {
+                Some(sym) => {
+                    if let Type::ClassName(class) = &sym.typ {
+                        receiver = &class;
+                    } else {
+                        panic!(
+                            "can't call method {} on primitive type receiver {}",
+                            call.subroutine, recv
+                        );
+                    }
+
+                    cmds.push(self.compile_var(vm::Command::Push, recv));
+                    args += 1;
+                }
+                None => receiver = &recv,
+            },
+            None => {
+                receiver = self.class_name;
+                cmds.push(vm::Command::Push(vm::Segment::Pointer, 0));
+                args += 1;
+            }
         }
 
         for arg in &call.args {
             cmds.extend(self.compile_expr(arg));
         }
 
-        let receiver = match call.receiver.as_ref() {
-            Some(recv) => recv,
-            None => self.class_name,
-        };
-
-        let name = format!("{}.{}", receiver, &call.subroutine);
+        let name = format!("{}.{}", receiver, call.subroutine);
         cmds.push(vm::Command::Call(name, args));
 
         cmds
