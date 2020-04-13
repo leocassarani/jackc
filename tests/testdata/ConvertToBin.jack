@@ -35,10 +35,21 @@ class Main {
     /** Returns the next mask (the mask that should follow the given mask). */
     function int nextMask(int mask) {
         if (mask = 0) {
-          return 1;
+            return 1;
         }
         else {
-          return mask * 2;
+            return mask * 2;
         }
+    }
+
+    /** Fills 'length' consecutive memory locations with 'value',
+      * starting at 'startAddress'. */
+    function void fillMemory(int startAddress, int length, int value) {
+        while (length > 0) {
+            do Memory.poke(startAddress, value);
+            let length = length - 1;
+            let startAddress = startAddress + 1;
+        }
+        return;
     }
 }

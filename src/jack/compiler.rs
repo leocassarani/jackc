@@ -60,15 +60,15 @@ impl Compiler {
                 if_body,
                 else_body,
             } => self.compile_if(condition, if_body, else_body.as_ref()),
+            Statement::While { condition, body } => self.compile_while(condition, body),
             Statement::Do(call) => self.compile_do(call),
             Statement::Return(value) => self.compile_return(value.as_ref()),
-            _ => unimplemented!(),
         }
     }
 
-    fn compile_let(&self, _lhs: &str, _index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
+    fn compile_let(&self, lhs: &str, _index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
         let mut cmds = self.compile_expr(rhs);
-        cmds.push(vm::Command::Pop(vm::Segment::Local, 0));
+        cmds.extend(self.compile_var_write(lhs));
         cmds
     }
 
@@ -102,6 +102,21 @@ impl Compiler {
             }
         }
 
+        cmds
+    }
+
+    fn compile_while(&self, condition: &Expr, body: &[Statement]) -> Vec<vm::Command> {
+        let mut cmds = vec![vm::Command::Label("WHILE_EXP0".to_owned())];
+        cmds.extend(self.compile_expr(condition));
+        cmds.extend(vec![
+            vm::Command::Not,
+            vm::Command::IfGoto("WHILE_END0".to_owned()),
+        ]);
+        cmds.extend(self.compile_statements(body));
+        cmds.extend(vec![
+            vm::Command::Goto("WHILE_EXP0".to_owned()),
+            vm::Command::Label("WHILE_END0".to_owned()),
+        ]);
         cmds
     }
 
@@ -148,7 +163,7 @@ impl Compiler {
     fn compile_term(&self, term: &Term) -> Vec<vm::Command> {
         match term {
             Term::IntConst(n) => vec![vm::Command::Push(vm::Segment::Constant, *n as u16)],
-            Term::Var(name) => self.compile_var(name),
+            Term::Var(name) => self.compile_var_read(name),
             Term::SubroutineCall(call) => self.compile_subroutine_call(call),
             Term::Bracketed(expr) => self.compile_expr(expr),
             Term::Unary(op, subterm) => {
@@ -160,7 +175,7 @@ impl Compiler {
         }
     }
 
-    fn compile_var(&self, name: &str) -> Vec<vm::Command> {
+    fn compile_var_read(&self, name: &str) -> Vec<vm::Command> {
         let symbol = self.symbols.get(&name).expect("undefined symbol");
 
         match symbol.kind {
@@ -170,10 +185,22 @@ impl Compiler {
         }
     }
 
+    fn compile_var_write(&self, name: &str) -> Vec<vm::Command> {
+        let symbol = self.symbols.get(&name).expect("undefined symbol");
+
+        match symbol.kind {
+            Kind::Argument => vec![vm::Command::Pop(vm::Segment::Argument, symbol.index)],
+            Kind::LocalVar => vec![vm::Command::Pop(vm::Segment::Local, symbol.index)],
+            _ => unimplemented!(),
+        }
+    }
+
     fn compile_binary_op(&self, op: BinaryOp) -> vm::Command {
         match op {
             BinaryOp::Add => vm::Command::Add,
+            BinaryOp::Subtract => vm::Command::Sub,
             BinaryOp::Multiply => vm::Command::Call("Math.multiply".to_string(), 2),
+            BinaryOp::GreaterThan => vm::Command::Gt,
             BinaryOp::Equal => vm::Command::Eq,
             _ => unimplemented!(),
         }
