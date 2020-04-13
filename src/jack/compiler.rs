@@ -3,11 +3,11 @@ use super::symbol_table::{Kind, SymbolTable, Type};
 use crate::vm;
 use std::iter;
 
-pub struct Compiler<'a> {
-    symbols: SymbolTable<'a>,
+pub struct Compiler {
+    symbols: SymbolTable,
 }
 
-impl<'a> Compiler<'a> {
+impl Compiler {
     pub fn new() -> Self {
         Compiler {
             symbols: SymbolTable::new(),
@@ -23,6 +23,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_subroutine(&mut self, class: &Class, sub: &Subroutine) -> Vec<vm::Command> {
+        self.symbols.start_subroutine();
+
         for param in &sub.params {
             self.symbols
                 .define(param.name.clone(), Type::from(&param.typ), Kind::Argument);
@@ -43,14 +45,14 @@ impl<'a> Compiler<'a> {
             .collect()
     }
 
-    fn compile_statements(&mut self, stmts: &[Statement]) -> Vec<vm::Command> {
+    fn compile_statements(&self, stmts: &[Statement]) -> Vec<vm::Command> {
         stmts
             .iter()
             .flat_map(|stmt| self.compile_statement(stmt))
             .collect()
     }
 
-    fn compile_statement(&mut self, stmt: &Statement) -> Vec<vm::Command> {
+    fn compile_statement(&self, stmt: &Statement) -> Vec<vm::Command> {
         match stmt {
             Statement::Let { lhs, index, rhs } => self.compile_let(lhs, index.as_ref(), rhs),
             Statement::If {
@@ -64,14 +66,14 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_let(&mut self, _lhs: &str, _index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
+    fn compile_let(&self, _lhs: &str, _index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
         let mut cmds = self.compile_expr(rhs);
         cmds.push(vm::Command::Pop(vm::Segment::Local, 0));
         cmds
     }
 
     fn compile_if(
-        &mut self,
+        &self,
         condition: &Expr,
         if_body: &[Statement],
         else_body: Option<&Vec<Statement>>,
@@ -103,13 +105,13 @@ impl<'a> Compiler<'a> {
         cmds
     }
 
-    fn compile_do(&mut self, call: &SubroutineCall) -> Vec<vm::Command> {
+    fn compile_do(&self, call: &SubroutineCall) -> Vec<vm::Command> {
         let mut cmds = self.compile_subroutine_call(call);
         cmds.push(vm::Command::Pop(vm::Segment::Temp, 0));
         cmds
     }
 
-    fn compile_return(&mut self, value: Option<&Expr>) -> Vec<vm::Command> {
+    fn compile_return(&self, value: Option<&Expr>) -> Vec<vm::Command> {
         let mut cmds = match value {
             Some(expr) => self.compile_expr(expr),
             None => vec![vm::Command::Push(vm::Segment::Constant, 0)],
@@ -118,7 +120,7 @@ impl<'a> Compiler<'a> {
         cmds
     }
 
-    fn compile_subroutine_call(&mut self, call: &SubroutineCall) -> Vec<vm::Command> {
+    fn compile_subroutine_call(&self, call: &SubroutineCall) -> Vec<vm::Command> {
         let args = call.args.iter().flat_map(|arg| self.compile_expr(arg));
 
         let mut name = match call.receiver.as_ref() {
@@ -131,7 +133,7 @@ impl<'a> Compiler<'a> {
         args.chain(jump).collect()
     }
 
-    fn compile_expr(&mut self, expr: &Expr) -> Vec<vm::Command> {
+    fn compile_expr(&self, expr: &Expr) -> Vec<vm::Command> {
         match expr {
             Expr::Term(term) => self.compile_term(term),
             Expr::Binary(op, left, right) => {
@@ -143,7 +145,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_term(&mut self, term: &Term) -> Vec<vm::Command> {
+    fn compile_term(&self, term: &Term) -> Vec<vm::Command> {
         match term {
             Term::IntConst(n) => vec![vm::Command::Push(vm::Segment::Constant, *n as u16)],
             Term::Var(name) => self.compile_var(name),
@@ -158,7 +160,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_var(&mut self, name: &str) -> Vec<vm::Command> {
+    fn compile_var(&self, name: &str) -> Vec<vm::Command> {
         let symbol = self.symbols.get(&name).expect("undefined symbol");
 
         match symbol.kind {
