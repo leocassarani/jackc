@@ -9,8 +9,8 @@ fn main() -> io::Result<()> {
     let mut parser = Parser::new(tokenizer);
     let class = parser.parse().expect("parsing error");
 
-    let compiler = Compiler::new(class);
-    println!("{:?}", compiler.compile());
+    let mut compiler = Compiler::new();
+    println!("{:?}", compiler.compile(&class));
 
     Ok(())
 }

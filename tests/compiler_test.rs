@@ -14,10 +14,10 @@ fn seven_jack_test() {
     let source = read_test_file("Seven.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let compiler = Compiler::new(class);
+    let mut compiler = Compiler::new();
 
     assert_eq!(
-        compiler.compile(),
+        compiler.compile(&class),
         vec![
             Command::Function("Main.main".into(), 0),
             Command::Push(Segment::Constant, 1),
@@ -38,10 +38,10 @@ fn convert_to_bin_jack_test() {
     let source = read_test_file("ConvertToBin.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let compiler = Compiler::new(class);
+    let mut compiler = Compiler::new();
 
     assert_eq!(
-        compiler.compile(),
+        compiler.compile(&class),
         vec![
             Command::Function("Main.main".into(), 1),
             Command::Push(Segment::Constant, 8001),
@@ -58,6 +58,22 @@ fn convert_to_bin_jack_test() {
             Command::Pop(Segment::Temp, 0),
             Command::Push(Segment::Constant, 0),
             Command::Return,
+            Command::Function("Main.nextMask".into(), 0),
+            Command::Push(Segment::Argument, 0),
+            Command::Push(Segment::Constant, 0),
+            Command::Eq,
+            Command::IfGoto("IF_TRUE0".into()),
+            Command::Goto("IF_FALSE0".into()),
+            Command::Label("IF_TRUE0".into()),
+            Command::Push(Segment::Constant, 1),
+            Command::Return,
+            Command::Goto("IF_END0".into()),
+            Command::Label("IF_FALSE0".into()),
+            Command::Push(Segment::Argument, 0),
+            Command::Push(Segment::Constant, 2),
+            Command::Call("Math.multiply".into(), 2),
+            Command::Return,
+            Command::Label("IF_END0".into()),
         ]
     );
 }

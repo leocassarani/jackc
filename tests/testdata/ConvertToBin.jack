@@ -31,4 +31,14 @@ class Main {
         do Main.convert(value);           // performs the conversion
         return;
     }
+
+    /** Returns the next mask (the mask that should follow the given mask). */
+    function int nextMask(int mask) {
+        if (mask = 0) {
+          return 1;
+        }
+        else {
+          return mask * 2;
+        }
+    }
 }

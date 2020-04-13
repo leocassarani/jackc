@@ -1,4 +1,6 @@
+use super::parser::VarType;
 use std::collections::HashMap;
+use std::convert::From;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Type {
@@ -6,6 +8,17 @@ pub enum Type {
     Char,
     Boolean,
     ClassName(String),
+}
+
+impl From<&VarType> for Type {
+    fn from(typ: &VarType) -> Self {
+        match typ {
+            VarType::Int => Type::Int,
+            VarType::Char => Type::Char,
+            VarType::Boolean => Type::Boolean,
+            VarType::ClassName(s) => Type::ClassName(s.clone()),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
