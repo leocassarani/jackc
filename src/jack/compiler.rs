@@ -267,8 +267,8 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_int_const(&self, n: i16) -> vm::Command {
-        vm::Command::Push(vm::Segment::Constant, n as u16)
+    fn compile_int_const(&self, n: u16) -> vm::Command {
+        vm::Command::Push(vm::Segment::Constant, n)
     }
 
     fn compile_str_const(&self, s: &str) -> Vec<vm::Command> {

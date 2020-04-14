@@ -5,7 +5,7 @@ use std::str::{Chars, FromStr};
 pub enum Token {
     Keyword(Keyword),
     Identifier(String),
-    IntConst(i16),
+    IntConst(u16),
     StrConst(String),
     Symbol(char),
 }
@@ -164,7 +164,7 @@ impl<'a> Tokenizer<'a> {
         self.read_while(first, is_identifier)
     }
 
-    fn read_int_const(&mut self, first: char) -> Option<i16> {
+    fn read_int_const(&mut self, first: char) -> Option<u16> {
         self.read_while(first, |ch| ch.is_ascii_digit())
             .and_then(|num| num.parse().ok())
     }

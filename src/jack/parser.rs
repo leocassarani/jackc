@@ -151,7 +151,7 @@ pub enum Statement {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Term {
-    IntConst(i16),
+    IntConst(u16),
     StrConst(String),
     KeywordConst(KeywordConst),
     Var(String),
