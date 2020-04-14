@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct Compiler<'a> {
     symbols: SymbolTable,
     labels: Labeller,
-    class_name: &'a str,
+    class: Option<&'a Class>,
 }
 
 impl<'a> Compiler<'a> {
@@ -14,13 +14,13 @@ impl<'a> Compiler<'a> {
         Compiler {
             symbols: SymbolTable::new(),
             labels: Labeller::new(),
-            class_name: "",
+            class: None,
         }
     }
 
     pub fn compile(&mut self, class: &'a Class) -> Vec<vm::Command> {
         self.symbols.reset();
-        self.class_name = &class.name;
+        self.class = Some(class);
 
         for vars in &class.vars {
             for name in &vars.names {
@@ -32,15 +32,17 @@ impl<'a> Compiler<'a> {
         class
             .subs
             .iter()
-            .flat_map(|sub| self.compile_subroutine(class, sub))
+            .flat_map(|sub| self.compile_subroutine(sub))
             .collect()
     }
 
-    fn compile_subroutine(&mut self, class: &Class, sub: &Subroutine) -> Vec<vm::Command> {
+    fn compile_subroutine(&mut self, sub: &Subroutine) -> Vec<vm::Command> {
         self.symbols.start_subroutine();
         self.labels.reset();
 
+        let class = self.class.unwrap();
         let name = format!("{}.{}", class.name, sub.name);
+
         let locals = sub
             .body
             .vars
@@ -237,7 +239,7 @@ impl<'a> Compiler<'a> {
                 None => receiver = &recv,
             },
             None => {
-                receiver = self.class_name;
+                receiver = &self.class.unwrap().name;
                 cmds.push(vm::Command::Push(vm::Segment::Pointer, 0));
                 args += 1;
             }
