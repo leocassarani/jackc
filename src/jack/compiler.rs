@@ -40,18 +40,6 @@ impl<'a> Compiler<'a> {
         self.symbols.start_subroutine();
         self.labels.reset();
 
-        for param in &sub.params {
-            self.symbols
-                .define(param.name.clone(), Type::from(&param.typ), Kind::Argument);
-        }
-
-        for vars in &sub.body.vars {
-            for name in &vars.names {
-                self.symbols
-                    .define(name.clone(), Type::from(&vars.typ), Kind::LocalVar);
-            }
-        }
-
         let name = format!("{}.{}", class.name, sub.name);
         let locals = sub
             .body
@@ -78,12 +66,35 @@ impl<'a> Compiler<'a> {
                 ]);
             }
             SubroutineKind::Method => {
+                // If this is a method, the symbol table must be pre-filled with "this", which
+                // would have been passed in as the first argument. As "this" is a keyword rather
+                // than an identifier, it will never be looked up in the symbol table, but defining
+                // it in the symbol table will have the desired side-effect of causing subsequent
+                // method arguments to start from the index 1 rather than 0.
+                self.symbols.define(
+                    "this".to_owned(),
+                    Type::ClassName(class.name.clone()),
+                    Kind::Argument,
+                );
+
                 cmds.extend(vec![
                     vm::Command::Push(vm::Segment::Argument, 0),
                     vm::Command::Pop(vm::Segment::Pointer, 0),
                 ]);
             }
             _ => {}
+        }
+
+        for param in &sub.params {
+            self.symbols
+                .define(param.name.clone(), Type::from(&param.typ), Kind::Argument);
+        }
+
+        for vars in &sub.body.vars {
+            for name in &vars.names {
+                self.symbols
+                    .define(name.clone(), Type::from(&vars.typ), Kind::LocalVar);
+            }
         }
 
         cmds.extend(self.compile_statements(&sub.body.statements));
