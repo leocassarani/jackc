@@ -10,7 +10,9 @@ fn main() -> io::Result<()> {
     let class = parser.parse().expect("parsing error");
 
     let mut compiler = Compiler::new();
-    println!("{:?}", compiler.compile(&class));
+    for cmd in compiler.compile(&class) {
+        println!("{}", cmd);
+    }
 
     Ok(())
 }
