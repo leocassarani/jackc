@@ -160,8 +160,8 @@ fn array_test_jack_test() {
 }
 
 #[test]
-fn main_jack_test() {
-    let source = read_test_file("Main.jack");
+fn square_main_jack_test() {
+    let source = read_test_file("SquareMain.jack");
     let tokenizer = Tokenizer::new(&source);
     let mut parser = Parser::new(tokenizer);
 

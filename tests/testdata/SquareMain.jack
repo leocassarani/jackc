@@ -10,11 +10,11 @@ class Main {
     static boolean test;    // Added for testing -- there is no static keyword
                             // in the Square files.
     function void main() {
-      var SquareGame game;
-      let game = SquareGame.new();
-      do game.run();
-      do game.dispose();
-      return;
+        var SquareGame game;
+        let game = SquareGame.new();
+        do game.run();
+        do game.dispose();
+        return;
     }
 
     function void test() {  // Added to test Jack syntax that is not use in

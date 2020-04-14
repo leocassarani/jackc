@@ -674,6 +674,100 @@ fn square_game_jack_test() {
 }
 
 #[test]
+fn square_main_jack_test() {
+    let source = read_test_file("SquareMain.jack");
+    let tokenizer = Tokenizer::new(&source);
+    let class = Parser::new(tokenizer).parse().expect("parsing error");
+    let mut compiler = Compiler::new();
+
+    assert_eq!(
+        compiler.compile(&class),
+        vec![
+            Command::Function("Main.main".into(), 1),
+            Command::Call("SquareGame.new".into(), 0),
+            Command::Pop(Segment::Local, 0),
+            Command::Push(Segment::Local, 0),
+            Command::Call("SquareGame.run".into(), 1),
+            Command::Pop(Segment::Temp, 0),
+            Command::Push(Segment::Local, 0),
+            Command::Call("SquareGame.dispose".into(), 1),
+            Command::Pop(Segment::Temp, 0),
+            Command::Push(Segment::Constant, 0),
+            Command::Return,
+            Command::Function("Main.test".into(), 4),
+            Command::Push(Segment::Constant, 0),
+            Command::IfGoto("IF_TRUE0".into()),
+            Command::Goto("IF_FALSE0".into()),
+            Command::Label("IF_TRUE0".into()),
+            Command::Push(Segment::Constant, 15),
+            Command::Call("String.new".into(), 1),
+            Command::Push(Segment::Constant, 115),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 116),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 114),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 105),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 110),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 103),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 32),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 99),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 111),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 110),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 115),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 116),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 97),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 110),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Push(Segment::Constant, 116),
+            Command::Call("String.appendChar".into(), 2),
+            Command::Pop(Segment::Local, 2),
+            Command::Push(Segment::Constant, 0),
+            Command::Pop(Segment::Local, 2),
+            Command::Push(Segment::Local, 3),
+            Command::Push(Segment::Constant, 2),
+            Command::Add,
+            Command::Pop(Segment::Pointer, 1),
+            Command::Push(Segment::That, 0),
+            Command::Push(Segment::Local, 3),
+            Command::Push(Segment::Constant, 1),
+            Command::Add,
+            Command::Pop(Segment::Pointer, 1),
+            Command::Pop(Segment::That, 0),
+            Command::Goto("IF_END0".into()),
+            Command::Label("IF_FALSE0".into()),
+            Command::Push(Segment::Local, 0),
+            Command::Push(Segment::Local, 1),
+            Command::Neg,
+            Command::Call("Math.multiply".into(), 2),
+            Command::Pop(Segment::Local, 0),
+            Command::Push(Segment::Local, 1),
+            Command::Push(Segment::Constant, 2),
+            Command::Neg,
+            Command::Call("Math.divide".into(), 2),
+            Command::Pop(Segment::Local, 1),
+            Command::Push(Segment::Local, 0),
+            Command::Push(Segment::Local, 1),
+            Command::Or,
+            Command::Pop(Segment::Local, 0),
+            Command::Label("IF_END0".into()),
+            Command::Push(Segment::Constant, 0),
+            Command::Return,
+        ]
+    );
+}
+
+#[test]
 fn average_jack_test() {
     let source = read_test_file("Average.jack");
     let tokenizer = Tokenizer::new(&source);

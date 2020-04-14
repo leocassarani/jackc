@@ -312,7 +312,7 @@ impl<'a> Compiler<'a> {
             Kind::Argument => vm::Segment::Argument,
             Kind::LocalVar => vm::Segment::Local,
             Kind::Field => vm::Segment::This,
-            _ => unimplemented!(),
+            Kind::Static => vm::Segment::Static,
         };
 
         f(segment, symbol.index)
@@ -342,10 +342,10 @@ impl<'a> Compiler<'a> {
             BinaryOp::Multiply => vm::Command::Call("Math.multiply".to_owned(), 2),
             BinaryOp::Divide => vm::Command::Call("Math.divide".to_owned(), 2),
             BinaryOp::And => vm::Command::And,
+            BinaryOp::Or => vm::Command::Or,
             BinaryOp::LessThan => vm::Command::Lt,
             BinaryOp::GreaterThan => vm::Command::Gt,
             BinaryOp::Equal => vm::Command::Eq,
-            _ => unimplemented!(),
         }
     }
 
