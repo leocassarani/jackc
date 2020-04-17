@@ -1,17 +1,11 @@
 use jackc::jack::{Compiler, Parser, Tokenizer};
 use jackc::vm::{Command, Segment};
-use std::path::PathBuf;
-use std::{env, fs};
 
-fn read_test_file(filename: &str) -> String {
-    let dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let path = dir.join("tests").join("testdata").join(filename);
-    fs::read_to_string(path).expect("couldn't load test file")
-}
+mod helpers;
 
 #[test]
 fn seven_jack_test() {
-    let source = read_test_file("Seven.jack");
+    let source = helpers::read_test_file("Seven.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();
@@ -35,7 +29,7 @@ fn seven_jack_test() {
 
 #[test]
 fn convert_to_bin_jack_test() {
-    let source = read_test_file("ConvertToBin.jack");
+    let source = helpers::read_test_file("ConvertToBin.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();
@@ -164,7 +158,7 @@ fn convert_to_bin_jack_test() {
 
 #[test]
 fn square_jack_test() {
-    let source = read_test_file("Square.jack");
+    let source = helpers::read_test_file("Square.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();
@@ -482,7 +476,7 @@ fn square_jack_test() {
 
 #[test]
 fn square_game_jack_test() {
-    let source = read_test_file("SquareGame.jack");
+    let source = helpers::read_test_file("SquareGame.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();
@@ -675,7 +669,7 @@ fn square_game_jack_test() {
 
 #[test]
 fn square_main_jack_test() {
-    let source = read_test_file("SquareMain.jack");
+    let source = helpers::read_test_file("SquareMain.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();
@@ -769,7 +763,7 @@ fn square_main_jack_test() {
 
 #[test]
 fn average_jack_test() {
-    let source = read_test_file("Average.jack");
+    let source = helpers::read_test_file("Average.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();
@@ -930,7 +924,7 @@ fn average_jack_test() {
 
 #[test]
 fn bat_jack_test() {
-    let source = read_test_file("Bat.jack");
+    let source = helpers::read_test_file("Bat.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
     let mut compiler = Compiler::new();

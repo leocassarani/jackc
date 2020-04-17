@@ -1,16 +1,10 @@
 use jackc::jack::*;
-use std::path::PathBuf;
-use std::{env, fs};
 
-fn read_test_file(filename: &str) -> String {
-    let dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let path = dir.join("tests").join("testdata").join(filename);
-    fs::read_to_string(path).expect("couldn't load test file")
-}
+mod helpers;
 
 #[test]
 fn array_test_jack_test() {
-    let source = read_test_file("ArrayTest.jack");
+    let source = helpers::read_test_file("ArrayTest.jack");
     let tokenizer = Tokenizer::new(&source);
     let mut parser = Parser::new(tokenizer);
 
@@ -161,7 +155,7 @@ fn array_test_jack_test() {
 
 #[test]
 fn square_main_jack_test() {
-    let source = read_test_file("SquareMain.jack");
+    let source = helpers::read_test_file("SquareMain.jack");
     let tokenizer = Tokenizer::new(&source);
     let mut parser = Parser::new(tokenizer);
 
@@ -303,7 +297,7 @@ fn square_main_jack_test() {
 
 #[test]
 fn square_jack_test() {
-    let source = read_test_file("Square.jack");
+    let source = helpers::read_test_file("Square.jack");
     let tokenizer = Tokenizer::new(&source);
     let mut parser = Parser::new(tokenizer);
 
@@ -927,7 +921,7 @@ fn square_jack_test() {
 
 #[test]
 fn square_game_jack_test() {
-    let source = read_test_file("SquareGame.jack");
+    let source = helpers::read_test_file("SquareGame.jack");
     let tokenizer = Tokenizer::new(&source);
     let mut parser = Parser::new(tokenizer);
 

@@ -1,16 +1,10 @@
 use jackc::jack::{Keyword, Token, Tokenizer};
-use std::path::PathBuf;
-use std::{env, fs};
 
-fn read_test_file(filename: &str) -> String {
-    let dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let path = dir.join("tests").join("testdata").join(filename);
-    fs::read_to_string(path).expect("couldn't load test file")
-}
+mod helpers;
 
 #[test]
 fn array_test_jack_test() {
-    let source = read_test_file("ArrayTest.jack");
+    let source = helpers::read_test_file("ArrayTest.jack");
     let tokenizer = Tokenizer::new(&source);
     let tokens: Vec<Token> = tokenizer.collect();
 
@@ -163,7 +157,7 @@ fn array_test_jack_test() {
 
 #[test]
 fn square_game_jack_test() {
-    let source = read_test_file("SquareGame.jack");
+    let source = helpers::read_test_file("SquareGame.jack");
     let tokenizer = Tokenizer::new(&source);
     let tokens: Vec<Token> = tokenizer.collect();
 
