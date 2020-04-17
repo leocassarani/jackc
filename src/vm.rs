@@ -1,3 +1,4 @@
+use crate::hack;
 use std::fmt;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -69,5 +70,28 @@ impl fmt::Display for Segment {
             Segment::Pointer => write!(f, "pointer"),
             Segment::Temp => write!(f, "temp"),
         }
+    }
+}
+
+pub struct Translator<'a> {
+    _cmds: &'a [Command],
+}
+
+impl<'a> Translator<'a> {
+    pub fn new(_cmds: &'a [Command]) -> Self {
+        Translator { _cmds }
+    }
+
+    pub fn translate(&self) -> Vec<hack::Instruction> {
+        vec![
+            hack::Instruction::A(257),                                    // @257
+            hack::Instruction::C(hack::CInstruction(0b1110110000010000)), // D=A
+            hack::Instruction::A(0),                                      // @0
+            hack::Instruction::C(hack::CInstruction(0b1111001100001000)), // M=D
+            hack::Instruction::A(15),                                     // @15
+            hack::Instruction::C(hack::CInstruction(0b1110110000010000)), // D=A
+            hack::Instruction::A(256),                                    // @256
+            hack::Instruction::C(hack::CInstruction(0b1111001100001000)), // M=D
+        ]
     }
 }

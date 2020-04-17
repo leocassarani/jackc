@@ -1,9 +1,11 @@
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Instruction {
     A(u16),
     C(CInstruction),
 }
 
-pub struct CInstruction(u16);
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct CInstruction(pub u16);
 
 impl CInstruction {
     pub fn a(&self) -> bool {
@@ -53,9 +55,10 @@ impl CInstruction {
 const RAM_SIZE: usize = 16 * 1024; // 32KiB
 
 pub struct Emulator<'a> {
+    pub ram: RAM,
+
     alu: ALU,
     reg: Registers,
-    ram: [u16; RAM_SIZE], // 32KiB
     rom: &'a [Instruction],
     pc: u16,
 }
@@ -63,39 +66,38 @@ pub struct Emulator<'a> {
 impl<'a> Emulator<'a> {
     pub fn new(rom: &'a [Instruction]) -> Self {
         Emulator {
+            ram: RAM::new(),
             alu: ALU::default(),
             reg: Registers::default(),
-            ram: [0; 16 * 1024],
             rom,
             pc: 0,
         }
     }
 
-    pub fn run(&mut self, max: usize) {
-        for _ in 0..max {
+    pub fn run(&mut self, ticks: usize) {
+        for _ in 0..ticks {
             self.step()
         }
     }
 
     pub fn step(&mut self) {
-        match &self.rom[self.pc as usize] {
-            Instruction::A(constant) => self.reg.a = *constant,
-            Instruction::C(c_inst) => {
+        match self.rom.get(self.pc as usize) {
+            Some(Instruction::A(constant)) => {
+                self.reg.a = *constant;
+                self.pc += 1;
+            }
+            Some(Instruction::C(c_inst)) => {
+                let addr = self.reg.a;
+
                 let x = self.reg.d;
 
                 let y = if c_inst.a() {
-                    self.ram[self.reg.a as usize]
+                    self.ram.get(self.reg.a)
                 } else {
                     self.reg.a
                 };
 
                 self.alu.load(x, y, c_inst.comp_field());
-
-                if self.jump(c_inst) {
-                    self.pc = self.reg.a;
-                } else {
-                    self.pc += 1;
-                }
 
                 if c_inst.d1() {
                     self.reg.a = self.alu.out;
@@ -104,14 +106,43 @@ impl<'a> Emulator<'a> {
                     self.reg.d = self.alu.out;
                 }
                 if c_inst.d3() {
-                    self.ram[self.reg.a as usize] = self.alu.out;
+                    self.ram.set(addr, self.alu.out);
+                }
+
+                if self.jump(c_inst) {
+                    self.pc = addr;
+                } else {
+                    self.pc += 1;
                 }
             }
+            _ => {} // If we run out of ROM, ignore it
         }
     }
 
     fn jump(&self, c_inst: &CInstruction) -> bool {
         (c_inst.j1() && self.alu.neg) || (c_inst.j2() && self.alu.zero) || c_inst.j3()
+    }
+}
+
+pub struct RAM([u16; RAM_SIZE]);
+
+impl RAM {
+    fn new() -> Self {
+        Self([0; RAM_SIZE])
+    }
+
+    pub fn init(&mut self, map: &[(u16, u16)]) {
+        for (addr, val) in map.iter() {
+            self.0[*addr as usize] = *val;
+        }
+    }
+
+    pub fn get(&self, addr: u16) -> u16 {
+        self.0[addr as usize]
+    }
+
+    pub fn set(&mut self, addr: u16, val: u16) {
+        self.0[addr as usize] = val;
     }
 }
 
