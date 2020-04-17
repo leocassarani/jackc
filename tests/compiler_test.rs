@@ -8,10 +8,10 @@ fn seven_jack_test() {
     let source = helpers::read_test_file("Seven.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("Main.main".into(), 0),
             Command::Push(Segment::Constant, 1),
@@ -32,10 +32,10 @@ fn convert_to_bin_jack_test() {
     let source = helpers::read_test_file("ConvertToBin.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("Main.main".into(), 1),
             Command::Push(Segment::Constant, 8001),
@@ -161,10 +161,10 @@ fn square_jack_test() {
     let source = helpers::read_test_file("Square.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("Square.new".into(), 0),
             Command::Push(Segment::Constant, 3),
@@ -479,10 +479,10 @@ fn square_game_jack_test() {
     let source = helpers::read_test_file("SquareGame.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("SquareGame.new".into(), 0),
             Command::Push(Segment::Constant, 2),
@@ -672,10 +672,10 @@ fn square_main_jack_test() {
     let source = helpers::read_test_file("SquareMain.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("Main.main".into(), 1),
             Command::Call("SquareGame.new".into(), 0),
@@ -766,10 +766,10 @@ fn average_jack_test() {
     let source = helpers::read_test_file("Average.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("Main.main".into(), 4),
             Command::Push(Segment::Constant, 18),
@@ -927,10 +927,10 @@ fn bat_jack_test() {
     let source = helpers::read_test_file("Bat.jack");
     let tokenizer = Tokenizer::new(&source);
     let class = Parser::new(tokenizer).parse().expect("parsing error");
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(&class);
 
     assert_eq!(
-        compiler.compile(&class),
+        compiler.compile(),
         vec![
             Command::Function("Bat.new".into(), 0),
             Command::Push(Segment::Constant, 5),

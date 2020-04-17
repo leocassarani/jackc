@@ -4,32 +4,31 @@ use crate::vm;
 use std::collections::HashMap;
 
 pub struct Compiler<'a> {
+    class: &'a Class,
     symbols: SymbolTable,
     labels: Labeller,
-    class: Option<&'a Class>,
 }
 
 impl<'a> Compiler<'a> {
-    pub fn new() -> Self {
+    pub fn new(class: &'a Class) -> Self {
         Compiler {
+            class,
             symbols: SymbolTable::new(),
             labels: Labeller::new(),
-            class: None,
         }
     }
 
-    pub fn compile(&mut self, class: &'a Class) -> Vec<vm::Command> {
+    pub fn compile(&mut self) -> Vec<vm::Command> {
         self.symbols.reset();
-        self.class = Some(class);
 
-        for vars in &class.vars {
+        for vars in &self.class.vars {
             for name in &vars.names {
                 self.symbols
                     .define(name.clone(), Type::from(&vars.typ), Kind::from(&vars.kind));
             }
         }
 
-        class
+        self.class
             .subs
             .iter()
             .flat_map(|sub| self.compile_subroutine(sub))
@@ -40,8 +39,7 @@ impl<'a> Compiler<'a> {
         self.symbols.start_subroutine();
         self.labels.reset();
 
-        let class = self.class.unwrap();
-        let name = format!("{}.{}", class.name, sub.name);
+        let name = format!("{}.{}", self.class.name, sub.name);
 
         let locals = sub
             .body
@@ -54,7 +52,8 @@ impl<'a> Compiler<'a> {
 
         match sub.kind {
             SubroutineKind::Constructor => {
-                let fields = class
+                let fields = self
+                    .class
                     .vars
                     .iter()
                     .filter(|vars| vars.kind == ClassVarKind::Field)
@@ -75,7 +74,7 @@ impl<'a> Compiler<'a> {
                 // method arguments to start from the index 1 rather than 0.
                 self.symbols.define(
                     "this".to_owned(),
-                    Type::ClassName(class.name.clone()),
+                    Type::ClassName(self.class.name.clone()),
                     Kind::Argument,
                 );
 
@@ -239,7 +238,7 @@ impl<'a> Compiler<'a> {
                 None => receiver = &recv,
             },
             None => {
-                receiver = &self.class.unwrap().name;
+                receiver = &self.class.name;
                 cmds.push(vm::Command::Push(vm::Segment::Pointer, 0));
                 args += 1;
             }
