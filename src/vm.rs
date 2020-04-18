@@ -74,24 +74,41 @@ impl fmt::Display for Segment {
 }
 
 pub struct Translator<'a> {
-    _cmds: &'a [Command],
+    cmds: &'a [Command],
 }
 
 impl<'a> Translator<'a> {
-    pub fn new(_cmds: &'a [Command]) -> Self {
-        Translator { _cmds }
+    pub fn new(cmds: &'a [Command]) -> Self {
+        Translator { cmds }
     }
 
     pub fn translate(&self) -> Vec<hack::Instruction> {
-        vec![
-            "@257".parse().unwrap(),
-            "D=A".parse().unwrap(),
-            "@0".parse().unwrap(),
-            "M=D".parse().unwrap(),
-            "@15".parse().unwrap(),
-            "D=A".parse().unwrap(),
-            "@256".parse().unwrap(),
-            "M=D".parse().unwrap(),
-        ]
+        self.cmds
+            .iter()
+            .flat_map(|cmd| self.translate_cmd(cmd))
+            .collect()
+    }
+
+    fn translate_cmd(&self, cmd: &Command) -> Vec<hack::Instruction> {
+        let instructions = match cmd {
+            Command::Push(Segment::Constant, n) => vec![
+                Ok(hack::Instruction::A(*n)),
+                "D=A".parse(),
+                "@SP".parse(),
+                "AM=M+1".parse(),
+                "A=A-1".parse(),
+                "M=D".parse(),
+            ],
+            Command::Add => vec![
+                "@SP".parse(),
+                "AM=M-1".parse(),
+                "D=M".parse(),
+                "A=A-1".parse(),
+                "M=D+M".parse(),
+            ],
+            _ => unimplemented!(),
+        };
+
+        instructions.into_iter().collect::<Result<_, _>>().unwrap()
     }
 }

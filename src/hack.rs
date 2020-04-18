@@ -11,7 +11,28 @@ impl FromStr for Instruction {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with('@') {
-            s[1..].parse().map(Instruction::A).map_err(|_| ())
+            let constant = match &s[1..] {
+                "SP" | "R0" => Ok(0),
+                "LCL" | "R1" => Ok(1),
+                "ARG" | "R2" => Ok(2),
+                "THIS" | "R3" => Ok(3),
+                "THAT" | "R4" => Ok(4),
+                "R5" => Ok(5),
+                "R6" => Ok(6),
+                "R7" => Ok(7),
+                "R8" => Ok(8),
+                "R9" => Ok(9),
+                "R10" => Ok(10),
+                "R11" => Ok(11),
+                "R12" => Ok(12),
+                "R13" => Ok(13),
+                "R14" => Ok(14),
+                "R15" => Ok(15),
+                "SCREEN" => Ok(0x4000),
+                "KBD" => Ok(0x6000),
+                number => number.parse().or(Err(())),
+            };
+            constant.map(Instruction::A)
         } else if s.contains('=') {
             match s.splitn(2, '=').collect::<Vec<_>>()[..] {
                 [lhs, rhs] => {
