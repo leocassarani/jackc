@@ -84,14 +84,14 @@ impl<'a> Translator<'a> {
 
     pub fn translate(&self) -> Vec<hack::Instruction> {
         vec![
-            hack::Instruction::A(257),                                    // @257
-            hack::Instruction::C(hack::CInstruction(0b1110110000010000)), // D=A
-            hack::Instruction::A(0),                                      // @0
-            hack::Instruction::C(hack::CInstruction(0b1111001100001000)), // M=D
-            hack::Instruction::A(15),                                     // @15
-            hack::Instruction::C(hack::CInstruction(0b1110110000010000)), // D=A
-            hack::Instruction::A(256),                                    // @256
-            hack::Instruction::C(hack::CInstruction(0b1111001100001000)), // M=D
+            "@257".parse().unwrap(),
+            "D=A".parse().unwrap(),
+            "@0".parse().unwrap(),
+            "M=D".parse().unwrap(),
+            "@15".parse().unwrap(),
+            "D=A".parse().unwrap(),
+            "@256".parse().unwrap(),
+            "M=D".parse().unwrap(),
         ]
     }
 }
