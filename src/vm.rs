@@ -105,60 +105,6 @@ impl<'a> Translator<'a> {
                 "A=A-1".parse(),
                 "M=M-D".parse(),
             ],
-            Command::Pop(Segment::Argument, n) => vec![
-                "@ARG".parse(),
-                "D=M".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "D=D+A".parse(),
-                "@R13".parse(),
-                "M=D".parse(),
-                "@SP".parse(),
-                "AM=M-1".parse(),
-                "D=M".parse(),
-                "@R13".parse(),
-                "A=M".parse(),
-                "M=D".parse(),
-            ],
-            Command::Pop(Segment::Local, 0) => vec![
-                "@LCL".parse(),
-                "D=M".parse(),
-                "@R13".parse(),
-                "M=D".parse(),
-                "@SP".parse(),
-                "AM=M-1".parse(),
-                "D=M".parse(),
-                "@R13".parse(),
-                "A=M".parse(),
-                "M=D".parse(),
-            ],
-            Command::Pop(Segment::This, n) => vec![
-                "@THIS".parse(),
-                "D=M".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "D=D+A".parse(),
-                "@R13".parse(),
-                "M=D".parse(),
-                "@SP".parse(),
-                "AM=M-1".parse(),
-                "D=M".parse(),
-                "@R13".parse(),
-                "A=M".parse(),
-                "M=D".parse(),
-            ],
-            Command::Pop(Segment::That, n) => vec![
-                "@THAT".parse(),
-                "D=M".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "D=D+A".parse(),
-                "@R13".parse(),
-                "M=D".parse(),
-                "@SP".parse(),
-                "AM=M-1".parse(),
-                "D=M".parse(),
-                "@R13".parse(),
-                "A=M".parse(),
-                "M=D".parse(),
-            ],
             Command::Pop(Segment::Pointer, 0) => vec![
                 "@SP".parse(),
                 "AM=M-1".parse(),
@@ -188,6 +134,7 @@ impl<'a> Translator<'a> {
                 "A=M".parse(),
                 "M=D".parse(),
             ],
+            Command::Pop(segment, n) => self.translate_pop(segment, *n),
             Command::Push(Segment::Constant, n) => vec![
                 // TODO: optimise this for known constants like 0
                 Ok(hack::Instruction::A(*n)),
@@ -270,5 +217,56 @@ impl<'a> Translator<'a> {
         };
 
         instructions.into_iter().collect::<Result<_, _>>().unwrap()
+    }
+
+    fn translate_pop(&self, segment: &Segment, n: u16) -> Vec<Result<hack::Instruction, ()>> {
+        let base = match segment {
+            Segment::Argument => "@ARG".parse(),
+            Segment::Local => "@LCL".parse(),
+            Segment::This => "@THIS".parse(),
+            Segment::That => "@THAT".parse(),
+            _ => Err(()),
+        };
+
+        match n {
+            0 => vec![
+                "@SP".parse(),
+                "AM=M-1".parse(),
+                "D=M".parse(),
+                base,
+                "A=M".parse(),
+                "M=D".parse(),
+            ],
+            1..=6 => {
+                let mut inst = vec![
+                    "@SP".parse(),
+                    "AM=M-1".parse(),
+                    "D=M".parse(),
+                    base,
+                    "A=M+1".parse(),
+                ];
+
+                for _ in 1..n {
+                    inst.push("A=A+1".parse());
+                }
+
+                inst.push("M=D".parse());
+                inst
+            }
+            _ => vec![
+                base,
+                "D=M".parse(),
+                Ok(hack::Instruction::A(n)),
+                "D=D+A".parse(),
+                "@R13".parse(),
+                "M=D".parse(),
+                "@SP".parse(),
+                "AM=M-1".parse(),
+                "D=M".parse(),
+                "@R13".parse(),
+                "A=M".parse(),
+                "M=D".parse(),
+            ],
+        }
     }
 }
