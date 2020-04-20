@@ -144,48 +144,6 @@ impl<'a> Translator<'a> {
                 "A=A-1".parse(),
                 "M=D".parse(),
             ],
-            Command::Push(Segment::Argument, n) => vec![
-                "@ARG".parse(),
-                "D=M".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "A=D+A".parse(),
-                "D=M".parse(),
-                "@SP".parse(),
-                "AM=M+1".parse(),
-                "A=A-1".parse(),
-                "M=D".parse(),
-            ],
-            Command::Push(Segment::Local, 0) => vec![
-                "@LCL".parse(),
-                "A=M".parse(),
-                "D=M".parse(),
-                "@SP".parse(),
-                "AM=M+1".parse(),
-                "A=A-1".parse(),
-                "M=D".parse(),
-            ],
-            Command::Push(Segment::This, n) => vec![
-                "@THIS".parse(),
-                "D=M".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "A=D+A".parse(),
-                "D=M".parse(),
-                "@SP".parse(),
-                "AM=M+1".parse(),
-                "A=A-1".parse(),
-                "M=D".parse(),
-            ],
-            Command::Push(Segment::That, n) => vec![
-                "@THAT".parse(),
-                "D=M".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "A=D+A".parse(),
-                "D=M".parse(),
-                "@SP".parse(),
-                "AM=M+1".parse(),
-                "A=A-1".parse(),
-                "M=D".parse(),
-            ],
             Command::Push(Segment::Pointer, 0) => vec![
                 "@THIS".parse(),
                 "D=M".parse(),
@@ -213,6 +171,7 @@ impl<'a> Translator<'a> {
                 "A=A-1".parse(),
                 "M=D".parse(),
             ],
+            Command::Push(segment, n) => self.translate_push(segment, *n),
             _ => unimplemented!(),
         };
 
@@ -265,6 +224,53 @@ impl<'a> Translator<'a> {
                 "D=M".parse(),
                 "@R13".parse(),
                 "A=M".parse(),
+                "M=D".parse(),
+            ],
+        }
+    }
+
+    fn translate_push(&self, segment: &Segment, n: u16) -> Vec<Result<hack::Instruction, ()>> {
+        let base = match segment {
+            Segment::Argument => "@ARG".parse(),
+            Segment::Local => "@LCL".parse(),
+            Segment::This => "@THIS".parse(),
+            Segment::That => "@THAT".parse(),
+            _ => Err(()),
+        };
+
+        match n {
+            0 => vec![
+                base,
+                "A=M".parse(),
+                "D=M".parse(),
+                "@SP".parse(),
+                "AM=M+1".parse(),
+                "A=A-1".parse(),
+                "M=D".parse(),
+            ],
+            1 | 2 => {
+                let mut inst = vec![base, "A=M+1".parse()];
+                for _ in 1..n {
+                    inst.push("A=A+1".parse());
+                }
+                inst.extend(vec![
+                    "D=M".parse(),
+                    "@SP".parse(),
+                    "AM=M+1".parse(),
+                    "A=A-1".parse(),
+                    "M=D".parse(),
+                ]);
+                inst
+            }
+            _ => vec![
+                base,
+                "D=M".parse(),
+                Ok(hack::Instruction::A(n)),
+                "A=D+A".parse(),
+                "D=M".parse(),
+                "@SP".parse(),
+                "AM=M+1".parse(),
+                "A=A-1".parse(),
                 "M=D".parse(),
             ],
         }
