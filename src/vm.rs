@@ -119,21 +119,7 @@ impl<'a> Translator<'a> {
                 "@THAT".parse(),
                 "M=D".parse(),
             ],
-            Command::Pop(Segment::Temp, n) => vec![
-                // TODO: pre-calculate R5, R6, …, R12
-                "@R5".parse(),
-                "D=A".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "D=D+A".parse(),
-                "@R13".parse(),
-                "M=D".parse(),
-                "@SP".parse(),
-                "AM=M-1".parse(),
-                "D=M".parse(),
-                "@R13".parse(),
-                "A=M".parse(),
-                "M=D".parse(),
-            ],
+            Command::Pop(Segment::Temp, n) => self.translate_pop_temp(*n),
             Command::Pop(segment, n) => self.translate_pop(segment, *n),
             Command::Push(Segment::Constant, n) => vec![
                 // TODO: optimise this for known constants like 0
@@ -160,22 +146,34 @@ impl<'a> Translator<'a> {
                 "A=A-1".parse(),
                 "M=D".parse(),
             ],
-            Command::Push(Segment::Temp, n) => vec![
-                "@R5".parse(),
-                "D=A".parse(),
-                Ok(hack::Instruction::A(*n)),
-                "A=D+A".parse(),
-                "D=M".parse(),
-                "@SP".parse(),
-                "AM=M+1".parse(),
-                "A=A-1".parse(),
-                "M=D".parse(),
-            ],
+            Command::Push(Segment::Temp, n) => self.translate_push_temp(*n),
             Command::Push(segment, n) => self.translate_push(segment, *n),
             _ => unimplemented!(),
         };
 
         instructions.into_iter().collect::<Result<_, _>>().unwrap()
+    }
+
+    fn translate_pop_temp(&self, n: u16) -> Vec<Result<hack::Instruction, ()>> {
+        let addr = match n {
+            0 => "@R5".parse(),
+            1 => "@R6".parse(),
+            2 => "@R7".parse(),
+            3 => "@R8".parse(),
+            4 => "@R9".parse(),
+            5 => "@R10".parse(),
+            6 => "@R11".parse(),
+            7 => "@R12".parse(),
+            _ => Err(()),
+        };
+
+        vec![
+            "@SP".parse(),
+            "AM=M-1".parse(),
+            "D=M".parse(),
+            addr,
+            "M=D".parse(),
+        ]
     }
 
     fn translate_pop(&self, segment: &Segment, n: u16) -> Vec<Result<hack::Instruction, ()>> {
@@ -227,6 +225,29 @@ impl<'a> Translator<'a> {
                 "M=D".parse(),
             ],
         }
+    }
+
+    fn translate_push_temp(&self, n: u16) -> Vec<Result<hack::Instruction, ()>> {
+        let addr = match n {
+            0 => "@R5".parse(),
+            1 => "@R6".parse(),
+            2 => "@R7".parse(),
+            3 => "@R8".parse(),
+            4 => "@R9".parse(),
+            5 => "@R10".parse(),
+            6 => "@R11".parse(),
+            7 => "@R12".parse(),
+            _ => Err(()),
+        };
+
+        vec![
+            addr,
+            "D=M".parse(),
+            "@SP".parse(),
+            "AM=M+1".parse(),
+            "A=A-1".parse(),
+            "M=D".parse(),
+        ]
     }
 
     fn translate_push(&self, segment: &Segment, n: u16) -> Vec<Result<hack::Instruction, ()>> {
