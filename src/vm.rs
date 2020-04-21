@@ -121,15 +121,7 @@ impl<'a> Translator<'a> {
             ],
             Command::Pop(Segment::Temp, n) => self.translate_pop_temp(*n),
             Command::Pop(segment, n) => self.translate_pop(segment, *n),
-            Command::Push(Segment::Constant, n) => vec![
-                // TODO: optimise this for known constants like 0
-                Ok(hack::Instruction::A(*n)),
-                "D=A".parse(),
-                "@SP".parse(),
-                "AM=M+1".parse(),
-                "A=A-1".parse(),
-                "M=D".parse(),
-            ],
+            Command::Push(Segment::Constant, n) => self.translate_push_const(*n),
             Command::Push(Segment::Pointer, 0) => vec![
                 "@THIS".parse(),
                 "D=M".parse(),
@@ -225,6 +217,27 @@ impl<'a> Translator<'a> {
                 "M=D".parse(),
             ],
         }
+    }
+
+    fn translate_push_const(&self, n: u16) -> Vec<Result<hack::Instruction, ()>> {
+        let mut instr = vec!["@SP".parse(), "AM=M+1".parse(), "A=A-1".parse()];
+
+        match n {
+            0 => instr.push("M=0".parse()),
+            1 => instr.push("M=1".parse()),
+            2 => instr.extend(vec!["M=1".parse(), "M=M+1".parse()]),
+            _ => {
+                let load = if n >> 15 == 0 {
+                    vec![Ok(hack::Instruction::A(n)), "D=A".parse()]
+                } else {
+                    vec![Ok(hack::Instruction::A(n & 0x7fff)), "D=-A".parse()]
+                };
+                instr.splice(0..0, load);
+                instr.push("M=D".parse());
+            }
+        };
+
+        instr
     }
 
     fn translate_push_temp(&self, n: u16) -> Vec<Result<hack::Instruction, ()>> {
