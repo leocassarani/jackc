@@ -4,127 +4,32 @@ use std::str::FromStr;
 #[macro_export]
 macro_rules! asm {
     (@$label:expr) => {
-        $crate::hack::Instruction::A($crate::hack::Load::from($label))
+        $crate::asm::Instruction::A($crate::asm::Load::from($label))
     };
     ($dest:ident = $comp:expr) => {
-        $crate::hack::Instruction::C(
-            Some($crate::hack::Dest::$dest),
+        $crate::asm::Instruction::C(
+            Some($crate::asm::Dest::$dest),
             stringify!($comp).parse().unwrap(),
             None,
         )
     };
     ($comp:expr ; $jump:ident) => {
-        $crate::hack::Instruction::C(
+        $crate::asm::Instruction::C(
             None,
             stringify!($comp).parse().unwrap(),
-            Some($crate::hack::Jump::$jump),
+            Some($crate::asm::Jump::$jump),
         )
+    };
+    (($label:expr)) => {
+        $crate::asm::Instruction::Label(String::from($label))
     };
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum Instruction {
     A(Load),
     C(Option<Dest>, Comp, Option<Jump>),
     Label(String),
-}
-
-impl Instruction {
-    pub fn to_u16(&self) -> Result<u16, ()> {
-        match self {
-            Instruction::A(Load::Constant(n)) => Ok(*n),
-            Instruction::A(Load::Symbol(s)) => match &s[..] {
-                "SP" | "R0" => Ok(0),
-                "LCL" | "R1" => Ok(1),
-                "ARG" | "R2" => Ok(2),
-                "THIS" | "R3" => Ok(3),
-                "THAT" | "R4" => Ok(4),
-                "R5" => Ok(5),
-                "R6" => Ok(6),
-                "R7" => Ok(7),
-                "R8" => Ok(8),
-                "R9" => Ok(9),
-                "R10" => Ok(10),
-                "R11" => Ok(11),
-                "R12" => Ok(12),
-                "R13" => Ok(13),
-                "R14" => Ok(14),
-                "R15" => Ok(15),
-                "SCREEN" => Ok(0x4000),
-                "KBD" => Ok(0x6000),
-                _ => Err(()),
-            },
-            Instruction::C(dest, comp, jump) => {
-                let (d1, d2, d3) = match dest {
-                    None => (0, 0, 0),
-                    Some(Dest::M) => (0, 0, 1),
-                    Some(Dest::D) => (0, 1, 0),
-                    Some(Dest::MD) => (0, 1, 1),
-                    Some(Dest::A) => (1, 0, 0),
-                    Some(Dest::AM) => (1, 0, 1),
-                    Some(Dest::AD) => (1, 1, 0),
-                    Some(Dest::AMD) => (1, 1, 1),
-                };
-
-                let (a, c1, c2, c3, c4, c5, c6) = match comp {
-                    Comp::Zero => (0, 1, 0, 1, 0, 1, 0),
-                    Comp::One => (0, 1, 1, 1, 1, 1, 1),
-                    Comp::NegOne => (0, 1, 1, 1, 0, 1, 0),
-                    Comp::D => (0, 0, 0, 1, 1, 0, 0),
-                    Comp::A => (0, 1, 1, 0, 0, 0, 0),
-                    Comp::NotD => (0, 0, 0, 1, 1, 0, 1),
-                    Comp::NotA => (0, 1, 1, 0, 0, 0, 1),
-                    Comp::NegD => (0, 0, 0, 1, 1, 1, 1),
-                    Comp::NegA => (0, 1, 1, 0, 0, 1, 1),
-                    Comp::DPlusOne => (0, 0, 1, 1, 1, 1, 1),
-                    Comp::APlusOne => (0, 1, 1, 0, 1, 1, 1),
-                    Comp::DMinusOne => (0, 0, 0, 1, 1, 1, 0),
-                    Comp::AMinusOne => (0, 1, 1, 0, 0, 1, 0),
-                    Comp::DPlusA => (0, 0, 0, 0, 0, 1, 0),
-                    Comp::DMinusA => (0, 0, 1, 0, 0, 1, 1),
-                    Comp::AMinusD => (0, 0, 0, 0, 1, 1, 1),
-                    Comp::DAndA => (0, 0, 0, 0, 0, 0, 0),
-                    Comp::DOrA => (0, 0, 1, 0, 1, 0, 1),
-                    Comp::M => (1, 1, 1, 0, 0, 0, 0),
-                    Comp::NotM => (1, 1, 1, 0, 0, 0, 1),
-                    Comp::NegM => (1, 1, 1, 0, 0, 1, 1),
-                    Comp::MPlusOne => (1, 1, 1, 0, 1, 1, 1),
-                    Comp::MMinusOne => (1, 1, 1, 0, 0, 1, 0),
-                    Comp::DPlusM => (1, 0, 0, 0, 0, 1, 0),
-                    Comp::DMinusM => (1, 0, 1, 0, 0, 1, 1),
-                    Comp::MMinusD => (1, 0, 0, 0, 1, 1, 1),
-                    Comp::DAndM => (1, 0, 0, 0, 0, 0, 0),
-                    Comp::DOrM => (1, 0, 1, 0, 1, 0, 1),
-                };
-
-                let (j1, j2, j3) = match jump {
-                    None => (0, 0, 0),
-                    Some(Jump::JGT) => (0, 0, 1),
-                    Some(Jump::JEQ) => (0, 1, 0),
-                    Some(Jump::JGE) => (0, 1, 1),
-                    Some(Jump::JLT) => (1, 0, 0),
-                    Some(Jump::JNE) => (1, 0, 1),
-                    Some(Jump::JLE) => (1, 1, 0),
-                    Some(Jump::JMP) => (1, 1, 1),
-                };
-
-                Ok(0b1110000000000000
-                    | a << 12
-                    | c1 << 11
-                    | c2 << 10
-                    | c3 << 9
-                    | c4 << 8
-                    | c5 << 7
-                    | c6 << 6
-                    | d1 << 5
-                    | d2 << 4
-                    | d3 << 3
-                    | j1 << 2
-                    | j2 << 1
-                    | j3)
-            }
-            _ => unimplemented!(),
-        }
-    }
 }
 
 impl fmt::Display for Instruction {

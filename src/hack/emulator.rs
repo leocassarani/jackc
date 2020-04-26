@@ -64,7 +64,9 @@ impl<'a> Emulator<'a> {
     }
 
     fn jump(&self, c_inst: &CInstruction) -> bool {
-        (c_inst.j1() && self.alu.neg) || (c_inst.j2() && self.alu.zero) || c_inst.j3()
+        (c_inst.j1() && self.alu.neg)
+            || (c_inst.j2() && self.alu.zero)
+            || (c_inst.j3() && self.alu.pos)
     }
 }
 
@@ -95,6 +97,7 @@ struct ALU {
     out: u16,
     zero: bool,
     neg: bool,
+    pos: bool,
 }
 
 impl ALU {
@@ -127,10 +130,11 @@ impl ALU {
         self.out = result as u16;
         self.zero = result == 0;
         self.neg = result < 0;
+        self.pos = result > 0;
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Registers {
     a: u16,
     d: u16,
