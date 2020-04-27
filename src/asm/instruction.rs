@@ -25,7 +25,7 @@ macro_rules! asm {
     };
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Instruction {
     A(Load),
     C(Option<Dest>, Comp, Option<Jump>),
@@ -45,7 +45,7 @@ impl fmt::Display for Instruction {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Load {
     Constant(u16),
     Symbol(String),
