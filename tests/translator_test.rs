@@ -118,6 +118,7 @@ fn basic_test() {
     emulator.run(600);
 
     assert_eq!(emulator.ram.get(0), 257);
+    assert_eq!(emulator.ram.get(256), 472);
     assert_eq!(emulator.ram.get(11), 510);
     assert_eq!(emulator.ram.get(256), 472);
     assert_eq!(emulator.ram.get(300), 10);
@@ -158,4 +159,34 @@ fn pointer_test() {
     assert_eq!(emulator.ram.get(256), 6084);
     assert_eq!(emulator.ram.get(3032), 32);
     assert_eq!(emulator.ram.get(3046), 46);
+}
+
+#[test]
+fn basic_loop() {
+    let cmds = vec![
+        Command::Push(Segment::Constant, 0),
+        Command::Pop(Segment::Local, 0),
+        Command::Label("LOOP_START".into()),
+        Command::Push(Segment::Argument, 0),
+        Command::Push(Segment::Local, 0),
+        Command::Add,
+        Command::Pop(Segment::Local, 0),
+        Command::Push(Segment::Argument, 0),
+        Command::Push(Segment::Constant, 1),
+        Command::Sub,
+        Command::Pop(Segment::Argument, 0),
+        Command::Push(Segment::Argument, 0),
+        Command::IfGoto("LOOP_START".into()),
+        Command::Push(Segment::Local, 0),
+    ];
+
+    let mut translator = Translator::new(&cmds);
+    let rom = asm::assemble(&translator.translate()[..]);
+
+    let mut emulator = Emulator::new(&rom);
+    emulator.ram.init(&[(0, 256), (1, 300), (2, 400), (400, 3)]);
+    emulator.run(600);
+
+    assert_eq!(emulator.ram.get(0), 257);
+    assert_eq!(emulator.ram.get(256), 6);
 }

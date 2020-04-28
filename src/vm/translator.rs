@@ -186,6 +186,14 @@ impl<'a> Translator<'a> {
                     ]),
                 }
             }
+            Command::Label(label) => vec![asm!((label))],
+            Command::IfGoto(label) => vec![
+                asm!(@"SP"),
+                asm!(AM = M - 1),
+                asm!(D = M),
+                asm!(@label.clone()),
+                asm!(D;JNE),
+            ],
             _ => unimplemented!(),
         }
     }
