@@ -78,12 +78,12 @@ impl<'a> Translator<'a> {
 
     fn translate_cmd(&mut self, cmd: &Command) -> Vec<Instruction> {
         match cmd {
-            Command::Add => self.translate_add(),
-            Command::Sub => self.translate_sub(),
-            Command::Neg => self.translate_neg(),
-            Command::And => self.translate_and(),
-            Command::Or => self.translate_or(),
-            Command::Not => self.translate_not(),
+            Command::Add => self.translate_binary_op(asm!(M = D + M)),
+            Command::Sub => self.translate_binary_op(asm!(M = M - D)),
+            Command::Neg => self.translate_unary_op(asm!(M = -M)),
+            Command::And => self.translate_binary_op(asm!(M = D & M)),
+            Command::Or => self.translate_binary_op(asm!(M = D | M)),
+            Command::Not => self.translate_unary_op(asm!(M = !M)),
             Command::Eq => self.translate_eq(),
             Command::Gt => self.translate_gt(),
             Command::Lt => self.translate_lt(),
@@ -183,57 +183,22 @@ impl<'a> Translator<'a> {
                     ]),
                 }
             }
-
             _ => unimplemented!(),
         }
     }
 
-    fn translate_add(&self) -> Vec<Instruction> {
+    fn translate_unary_op(&self, op: Instruction) -> Vec<Instruction> {
+        vec![asm!(@"SP"), asm!(A = M - 1), op]
+    }
+
+    fn translate_binary_op(&self, op: Instruction) -> Vec<Instruction> {
         vec![
             asm!(@"SP"),
             asm!(AM = M - 1),
             asm!(D = M),
             asm!(A = A - 1),
-            asm!(M = D + M),
+            op,
         ]
-    }
-
-    fn translate_sub(&self) -> Vec<Instruction> {
-        vec![
-            asm!(@"SP"),
-            asm!(AM = M - 1),
-            asm!(D = M),
-            asm!(A = A - 1),
-            asm!(M = M - D),
-        ]
-    }
-
-    fn translate_neg(&self) -> Vec<Instruction> {
-        vec![asm!(@"SP"), asm!(A = M - 1), asm!(M = -M)]
-    }
-
-    fn translate_and(&self) -> Vec<Instruction> {
-        vec![
-            asm!(@"SP"),
-            asm!(AM = M - 1),
-            asm!(D = M),
-            asm!(A = A - 1),
-            asm!(M = D & M),
-        ]
-    }
-
-    fn translate_or(&self) -> Vec<Instruction> {
-        vec![
-            asm!(@"SP"),
-            asm!(AM = M - 1),
-            asm!(D = M),
-            asm!(A = A - 1),
-            asm!(M = D | M),
-        ]
-    }
-
-    fn translate_not(&self) -> Vec<Instruction> {
-        vec![asm!(@"SP"), asm!(A = M - 1), asm!(M = !M)]
     }
 
     fn translate_eq(&mut self) -> Vec<Instruction> {
