@@ -10,7 +10,7 @@ fn simple_add_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(&translator.translate()[..]);
+    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(60);
@@ -62,7 +62,7 @@ fn stack_test() {
         Command::Not,
     ]);
 
-    let rom = asm::assemble(&translator.translate()[..]);
+    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(1000);
@@ -110,7 +110,7 @@ fn basic_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(&translator.translate()[..]);
+    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator
         .ram
@@ -149,7 +149,7 @@ fn pointer_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(&translator.translate()[..]);
+    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(450);
@@ -177,7 +177,7 @@ fn static_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(&translator.translate()[..]);
+    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(200);
@@ -205,7 +205,7 @@ fn basic_loop() {
     ];
 
     let mut translator = Translator::new(&cmds);
-    let rom = asm::assemble(&translator.translate()[..]);
+    let rom = asm::assemble(translator.translate());
 
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256), (1, 300), (2, 400), (400, 3)]);
@@ -213,4 +213,47 @@ fn basic_loop() {
 
     assert_eq!(emulator.ram.get(0), 257);
     assert_eq!(emulator.ram.get(256), 6);
+}
+
+#[test]
+fn simple_function() {
+    let cmds = vec![
+        Command::Function("SimpleFunction.test".into(), 2),
+        Command::Push(Segment::Local, 0),
+        Command::Push(Segment::Local, 1),
+        Command::Add,
+        Command::Not,
+        Command::Push(Segment::Argument, 0),
+        Command::Add,
+        Command::Push(Segment::Argument, 1),
+        Command::Sub,
+        Command::Return,
+    ];
+
+    let mut translator = Translator::new(&cmds);
+    let rom = asm::assemble(translator.translate());
+
+    let mut emulator = Emulator::new(&rom);
+    emulator.ram.init(&[
+        (0, 317),
+        (1, 317),
+        (2, 310),
+        (3, 3000),
+        (4, 4000),
+        (310, 1234),
+        (311, 37),
+        (312, 1000),
+        (313, 305),
+        (314, 300),
+        (315, 3010),
+        (316, 4010),
+    ]);
+    emulator.run(300);
+
+    assert_eq!(emulator.ram.get(0), 311);
+    assert_eq!(emulator.ram.get(1), 305);
+    assert_eq!(emulator.ram.get(2), 300);
+    assert_eq!(emulator.ram.get(3), 3010);
+    assert_eq!(emulator.ram.get(4), 4010);
+    assert_eq!(emulator.ram.get(310), 1196);
 }

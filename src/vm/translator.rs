@@ -71,6 +71,53 @@ fn gt() -> Vec<Instruction> {
     ]
 }
 
+fn ret() -> Vec<Instruction> {
+    vec![
+        asm!(("RETURN")),
+        asm!(@5),
+        asm!(D = A),
+        asm!(@"LCL"),
+        asm!(A = M - D),
+        asm!(D = M),
+        asm!(@"R13"),
+        asm!(M = D),
+        asm!(@"SP"),
+        asm!(AM = M - 1),
+        asm!(D = M),
+        asm!(@"ARG"),
+        asm!(A = M),
+        asm!(M = D),
+        asm!(D = A),
+        asm!(@"SP"),
+        asm!(M = D + 1),
+        asm!(@"LCL"),
+        asm!(D = M),
+        asm!(@"R14"),
+        asm!(AM = D - 1),
+        asm!(D = M),
+        asm!(@"THAT"),
+        asm!(M = D),
+        asm!(@"R14"),
+        asm!(AM = M - 1),
+        asm!(D = M),
+        asm!(@"THIS"),
+        asm!(M = D),
+        asm!(@"R14"),
+        asm!(AM = M - 1),
+        asm!(D = M),
+        asm!(@"ARG"),
+        asm!(M = D),
+        asm!(@"R14"),
+        asm!(AM = M - 1),
+        asm!(D = M),
+        asm!(@"LCL"),
+        asm!(M = D),
+        asm!(@"R13"),
+        asm!(A = M),
+        asm!(0;JMP),
+    ]
+}
+
 fn temp_register(idx: u16) -> Instruction {
     match idx {
         0 => asm!(@"R5"),
@@ -115,6 +162,7 @@ impl<'a> Translator<'a> {
         prog.extend(eq());
         prog.extend(lt());
         prog.extend(gt());
+        prog.extend(ret());
         prog.push(asm!(("START")));
         prog.extend(self.cmds.iter().flat_map(|cmd| self.translate_cmd(cmd)));
         prog
@@ -137,7 +185,6 @@ impl<'a> Translator<'a> {
             Command::Pop(Segment::Static, idx) => self.translate_pop(&[static_addr(*idx)]),
             Command::Pop(segment, idx) => {
                 let register = segment_register(*segment);
-
                 match idx {
                     0 => self.translate_pop(&[register, asm!(A = M)]),
                     1..=6 => {
@@ -176,7 +223,6 @@ impl<'a> Translator<'a> {
             }
             Command::Push(segment, idx) => {
                 let register = segment_register(*segment);
-
                 match idx {
                     0 => self.translate_push(&[register, asm!(A = M), asm!(D = M)]),
                     1 => self.translate_push(&[register, asm!(A = M + 1), asm!(D = M)]),
@@ -203,6 +249,22 @@ impl<'a> Translator<'a> {
                 asm!(@label.clone()),
                 asm!(D;JNE),
             ],
+            Command::Function(func, locals) => {
+                // TODO: optimise
+                let init = std::iter::repeat(vec![
+                    asm!(@"SP"),
+                    asm!(AM = M + 1),
+                    asm!(A = A - 1),
+                    asm!(M = 0),
+                ])
+                .take(*locals as usize)
+                .flatten();
+
+                let mut instr = vec![asm!((func))];
+                instr.extend(init);
+                instr
+            }
+            Command::Return => vec![asm!(@"RETURN"), asm!(0;JMP)],
             _ => unimplemented!(),
         }
     }
