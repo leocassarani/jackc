@@ -2,15 +2,19 @@ use jackc::asm;
 use jackc::hack::Emulator;
 use jackc::vm::{Command, Segment, Translator};
 
+fn translate_and_assemble(cmds: &[Command]) -> Vec<u16> {
+    let mut translator = Translator::new(cmds);
+    asm::assemble(translator.translate())
+}
+
 #[test]
 fn simple_add_test() {
-    let mut translator = Translator::new(&[
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Constant, 7),
         Command::Push(Segment::Constant, 8),
         Command::Add,
     ]);
 
-    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(60);
@@ -21,7 +25,7 @@ fn simple_add_test() {
 
 #[test]
 fn stack_test() {
-    let mut translator = Translator::new(&[
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Constant, 17),
         Command::Push(Segment::Constant, 17),
         Command::Eq,
@@ -62,7 +66,6 @@ fn stack_test() {
         Command::Not,
     ]);
 
-    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(1000);
@@ -82,7 +85,7 @@ fn stack_test() {
 
 #[test]
 fn basic_test() {
-    let mut translator = Translator::new(&[
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Constant, 10),
         Command::Pop(Segment::Local, 0),
         Command::Push(Segment::Constant, 21),
@@ -110,7 +113,6 @@ fn basic_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator
         .ram
@@ -131,7 +133,7 @@ fn basic_test() {
 
 #[test]
 fn pointer_test() {
-    let mut translator = Translator::new(&[
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Constant, 3030),
         Command::Pop(Segment::Pointer, 0),
         Command::Push(Segment::Constant, 3040),
@@ -149,7 +151,6 @@ fn pointer_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(450);
@@ -163,7 +164,7 @@ fn pointer_test() {
 
 #[test]
 fn static_test() {
-    let mut translator = Translator::new(&[
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Constant, 111),
         Command::Push(Segment::Constant, 333),
         Command::Push(Segment::Constant, 888),
@@ -177,7 +178,6 @@ fn static_test() {
         Command::Add,
     ]);
 
-    let rom = asm::assemble(translator.translate());
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256)]);
     emulator.run(200);
@@ -187,7 +187,7 @@ fn static_test() {
 
 #[test]
 fn basic_loop() {
-    let cmds = vec![
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Constant, 0),
         Command::Pop(Segment::Local, 0),
         Command::Label("LOOP_START".into()),
@@ -202,10 +202,7 @@ fn basic_loop() {
         Command::Push(Segment::Argument, 0),
         Command::IfGoto("LOOP_START".into()),
         Command::Push(Segment::Local, 0),
-    ];
-
-    let mut translator = Translator::new(&cmds);
-    let rom = asm::assemble(translator.translate());
+    ]);
 
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[(0, 256), (1, 300), (2, 400), (400, 3)]);
@@ -217,7 +214,7 @@ fn basic_loop() {
 
 #[test]
 fn fibonacci_series() {
-    let cmds = vec![
+    let rom = translate_and_assemble(&[
         Command::Push(Segment::Argument, 1),
         Command::Pop(Segment::Pointer, 1),
         Command::Push(Segment::Constant, 0),
@@ -247,10 +244,7 @@ fn fibonacci_series() {
         Command::Pop(Segment::Argument, 0),
         Command::Goto("MAIN_LOOP_START".into()),
         Command::Label("END_PROGRAM".into()),
-    ];
-
-    let mut translator = Translator::new(&cmds);
-    let rom = asm::assemble(translator.translate());
+    ]);
 
     let mut emulator = Emulator::new(&rom);
     emulator
@@ -268,7 +262,7 @@ fn fibonacci_series() {
 
 #[test]
 fn simple_function() {
-    let cmds = vec![
+    let rom = translate_and_assemble(&[
         Command::Function("SimpleFunction.test".into(), 2),
         Command::Push(Segment::Local, 0),
         Command::Push(Segment::Local, 1),
@@ -279,10 +273,7 @@ fn simple_function() {
         Command::Push(Segment::Argument, 1),
         Command::Sub,
         Command::Return,
-    ];
-
-    let mut translator = Translator::new(&cmds);
-    let rom = asm::assemble(translator.translate());
+    ]);
 
     let mut emulator = Emulator::new(&rom);
     emulator.ram.init(&[
