@@ -42,16 +42,31 @@ pub fn assemble(prog: &[Instruction]) -> Vec<u16> {
             idx += 1;
         }
         Instruction::Label(label) => {
-            symbols.insert(label.to_owned(), idx); // TODO: duplicate entries
-            ()
+            if symbols.contains_key(label) {
+                panic!("can't define the label twice: {}", label);
+            } else {
+                symbols.insert(label.to_owned(), idx);
+            }
         }
     });
+
+    let mut next_static = 16;
 
     unlabelled
         .iter()
         .map(|instr| match instr {
             Instruction::A(Load::Constant(n)) => *n,
-            Instruction::A(Load::Symbol(symbol)) => symbols[symbol],
+            Instruction::A(Load::Symbol(symbol)) => match symbols.get(symbol) {
+                Some(idx) => *idx,
+                None => {
+                    let idx = symbols.entry(symbol.to_owned()).or_insert_with(|| {
+                        let idx = next_static;
+                        next_static += 1;
+                        idx
+                    });
+                    *idx
+                }
+            },
             Instruction::C(dest, comp, jump) => {
                 let (d1, d2, d3) = match dest {
                     None => (0, 0, 0),

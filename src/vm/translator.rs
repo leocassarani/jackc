@@ -95,6 +95,11 @@ fn segment_register(seg: Segment) -> Instruction {
     }
 }
 
+fn static_addr(idx: u16) -> Instruction {
+    let symbol = format!("Xxx.{}", idx);
+    asm!(@symbol)
+}
+
 pub struct Translator<'a> {
     cmds: &'a [Command],
     count: usize,
@@ -129,6 +134,7 @@ impl<'a> Translator<'a> {
             Command::Pop(Segment::Pointer, 0) => self.translate_pop(&[asm!(@"THIS")]),
             Command::Pop(Segment::Pointer, 1) => self.translate_pop(&[asm!(@"THAT")]),
             Command::Pop(Segment::Temp, idx) => self.translate_pop(&[temp_register(*idx)]),
+            Command::Pop(Segment::Static, idx) => self.translate_pop(&[static_addr(*idx)]),
             Command::Pop(segment, idx) => {
                 let register = segment_register(*segment);
 
@@ -164,6 +170,9 @@ impl<'a> Translator<'a> {
             }
             Command::Push(Segment::Temp, idx) => {
                 self.translate_push(&[temp_register(*idx), asm!(D = M)])
+            }
+            Command::Push(Segment::Static, idx) => {
+                self.translate_push(&[static_addr(*idx), asm!(D = M)])
             }
             Command::Push(segment, idx) => {
                 let register = segment_register(*segment);

@@ -162,6 +162,30 @@ fn pointer_test() {
 }
 
 #[test]
+fn static_test() {
+    let mut translator = Translator::new(&[
+        Command::Push(Segment::Constant, 111),
+        Command::Push(Segment::Constant, 333),
+        Command::Push(Segment::Constant, 888),
+        Command::Pop(Segment::Static, 8),
+        Command::Pop(Segment::Static, 3),
+        Command::Pop(Segment::Static, 1),
+        Command::Push(Segment::Static, 3),
+        Command::Push(Segment::Static, 1),
+        Command::Sub,
+        Command::Push(Segment::Static, 8),
+        Command::Add,
+    ]);
+
+    let rom = asm::assemble(&translator.translate()[..]);
+    let mut emulator = Emulator::new(&rom);
+    emulator.ram.init(&[(0, 256)]);
+    emulator.run(200);
+
+    assert_eq!(emulator.ram.get(256), 1110);
+}
+
+#[test]
 fn basic_loop() {
     let cmds = vec![
         Command::Push(Segment::Constant, 0),
