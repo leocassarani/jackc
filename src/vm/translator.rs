@@ -242,11 +242,12 @@ impl<'a> Translator<'a> {
                 }
             }
             Command::Label(label) => vec![asm!((label))],
+            Command::Goto(label) => vec![asm!(@label), asm!(0;JMP)],
             Command::IfGoto(label) => vec![
                 asm!(@"SP"),
                 asm!(AM = M - 1),
                 asm!(D = M),
-                asm!(@label.clone()),
+                asm!(@label),
                 asm!(D;JNE),
             ],
             Command::Function(func, locals) => {

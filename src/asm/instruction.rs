@@ -63,6 +63,12 @@ impl From<&str> for Load {
     }
 }
 
+impl From<&String> for Load {
+    fn from(sym: &String) -> Self {
+        Load::Symbol(sym.clone())
+    }
+}
+
 impl From<String> for Load {
     fn from(sym: String) -> Self {
         Load::Symbol(sym)

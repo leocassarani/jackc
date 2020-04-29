@@ -216,6 +216,57 @@ fn basic_loop() {
 }
 
 #[test]
+fn fibonacci_series() {
+    let cmds = vec![
+        Command::Push(Segment::Argument, 1),
+        Command::Pop(Segment::Pointer, 1),
+        Command::Push(Segment::Constant, 0),
+        Command::Pop(Segment::That, 0),
+        Command::Push(Segment::Constant, 1),
+        Command::Pop(Segment::That, 1),
+        Command::Push(Segment::Argument, 0),
+        Command::Push(Segment::Constant, 2),
+        Command::Sub,
+        Command::Pop(Segment::Argument, 0),
+        Command::Label("MAIN_LOOP_START".into()),
+        Command::Push(Segment::Argument, 0),
+        Command::IfGoto("COMPUTE_ELEMENT".into()),
+        Command::Goto("END_PROGRAM".into()),
+        Command::Label("COMPUTE_ELEMENT".into()),
+        Command::Push(Segment::That, 0),
+        Command::Push(Segment::That, 1),
+        Command::Add,
+        Command::Pop(Segment::That, 2),
+        Command::Push(Segment::Pointer, 1),
+        Command::Push(Segment::Constant, 1),
+        Command::Add,
+        Command::Pop(Segment::Pointer, 1),
+        Command::Push(Segment::Argument, 0),
+        Command::Push(Segment::Constant, 1),
+        Command::Sub,
+        Command::Pop(Segment::Argument, 0),
+        Command::Goto("MAIN_LOOP_START".into()),
+        Command::Label("END_PROGRAM".into()),
+    ];
+
+    let mut translator = Translator::new(&cmds);
+    let rom = asm::assemble(translator.translate());
+
+    let mut emulator = Emulator::new(&rom);
+    emulator
+        .ram
+        .init(&[(0, 256), (1, 300), (2, 400), (400, 6), (401, 3000)]);
+    emulator.run(1100);
+
+    assert_eq!(emulator.ram.get(3000), 0);
+    assert_eq!(emulator.ram.get(3001), 1);
+    assert_eq!(emulator.ram.get(3002), 1);
+    assert_eq!(emulator.ram.get(3003), 2);
+    assert_eq!(emulator.ram.get(3004), 3);
+    assert_eq!(emulator.ram.get(3005), 5);
+}
+
+#[test]
 fn simple_function() {
     let cmds = vec![
         Command::Function("SimpleFunction.test".into(), 2),
