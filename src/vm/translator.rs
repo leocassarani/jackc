@@ -2,6 +2,8 @@ use super::command::*;
 use crate::asm;
 use crate::asm::Instruction;
 
+const DEFAULT_INIT: &str = "Sys.init";
+
 fn eq() -> Vec<Instruction> {
     vec![
         asm!(("EQ")),
@@ -118,6 +120,50 @@ fn ret() -> Vec<Instruction> {
     ]
 }
 
+fn call() -> Vec<Instruction> {
+    vec![
+        asm!(("CALL")),
+        asm!(@"SP"),
+        asm!(A = M),
+        asm!(M = D),
+        asm!(@"LCL"),
+        asm!(D = M),
+        asm!(@"SP"),
+        asm!(AM = M + 1),
+        asm!(M = D),
+        asm!(@"ARG"),
+        asm!(D = M),
+        asm!(@"SP"),
+        asm!(AM = M + 1),
+        asm!(M = D),
+        asm!(@"THIS"),
+        asm!(D = M),
+        asm!(@"SP"),
+        asm!(AM = M + 1),
+        asm!(M = D),
+        asm!(@"THAT"),
+        asm!(D = M),
+        asm!(@"SP"),
+        asm!(AM = M + 1),
+        asm!(M = D),
+        asm!(@4),
+        asm!(D = A),
+        asm!(@"R13"),
+        asm!(D = D + M),
+        asm!(@"SP"),
+        asm!(D = M - D),
+        asm!(@"ARG"),
+        asm!(M = D),
+        asm!(@"SP"),
+        asm!(MD = M + 1),
+        asm!(@"LCL"),
+        asm!(M = D),
+        asm!(@"R14"),
+        asm!(A = M),
+        asm!(0;JMP),
+    ]
+}
+
 fn temp_register(idx: u16) -> Instruction {
     match idx {
         0 => asm!(@"R5"),
@@ -149,21 +195,46 @@ fn static_addr(idx: u16) -> Instruction {
 
 pub struct Translator<'a> {
     cmds: &'a [Command],
+    init: Option<String>,
     count: usize,
 }
 
 impl<'a> Translator<'a> {
     pub fn new(cmds: &'a [Command]) -> Self {
-        Translator { cmds, count: 0 }
+        Translator {
+            cmds,
+            init: Some(DEFAULT_INIT.to_owned()),
+            count: 0,
+        }
+    }
+
+    pub fn init(mut self, init: Option<String>) -> Self {
+        self.init = init;
+        self
     }
 
     pub fn translate(&mut self) -> Vec<Instruction> {
-        let mut prog = vec![asm!(@"START"), asm!(0;JMP)];
+        let mut prog = vec![
+            asm!(@256),
+            asm!(D = A),
+            asm!(@"SP"),
+            asm!(M = D),
+            asm!(@"START"),
+            asm!(0;JMP),
+        ];
+
         prog.extend(eq());
         prog.extend(lt());
         prog.extend(gt());
         prog.extend(ret());
+        prog.extend(call());
         prog.push(asm!(("START")));
+
+        if let Some(func) = &self.init {
+            let func = func.clone();
+            prog.extend(self.translate_call(func, 0));
+        }
+
         prog.extend(self.cmds.iter().flat_map(|cmd| self.translate_cmd(cmd)));
         prog
     }
@@ -265,8 +336,8 @@ impl<'a> Translator<'a> {
                 instr.extend(init);
                 instr
             }
+            Command::Call(func, args) => self.translate_call(func.to_owned(), *args),
             Command::Return => vec![asm!(@"RETURN"), asm!(0;JMP)],
-            _ => unimplemented!(),
         }
     }
 
@@ -307,5 +378,26 @@ impl<'a> Translator<'a> {
     fn translate_push(&self, load: &[Instruction]) -> Vec<Instruction> {
         let push = &[asm!(@"SP"), asm!(AM = M + 1), asm!(A = A - 1), asm!(M = D)];
         [load, push].concat()
+    }
+
+    fn translate_call(&mut self, func: String, args: u16) -> Vec<Instruction> {
+        let label = format!("RET_ADDRESS_{}", self.count);
+        self.count += 1;
+
+        vec![
+            asm!(@args), // TODO: optimise
+            asm!(D = A),
+            asm!(@"R13"),
+            asm!(M = D),
+            asm!(@func),
+            asm!(D = A),
+            asm!(@"R14"),
+            asm!(M = D),
+            asm!(@label.clone()),
+            asm!(D = A),
+            asm!(@"CALL"),
+            asm!(0;JMP),
+            asm!((label)),
+        ]
     }
 }

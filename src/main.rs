@@ -1,4 +1,5 @@
 use jackc::jack::{Compiler, Parser, Tokenizer};
+use jackc::vm::Translator;
 use std::{env, fs, io};
 
 fn main() -> io::Result<()> {
@@ -10,8 +11,11 @@ fn main() -> io::Result<()> {
     let class = parser.parse().expect("parsing error");
 
     let mut compiler = Compiler::new(&class);
-    for cmd in compiler.compile() {
-        println!("{}", cmd);
+    let cmds = compiler.compile();
+
+    let mut translator = Translator::new(&cmds);
+    for instr in translator.translate() {
+        println!("{}", instr);
     }
 
     Ok(())
