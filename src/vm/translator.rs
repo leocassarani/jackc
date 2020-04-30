@@ -321,21 +321,7 @@ impl<'a> Translator<'a> {
                 asm!(@label),
                 asm!(D;JNE),
             ],
-            Command::Function(func, locals) => {
-                // TODO: optimise
-                let init = std::iter::repeat(vec![
-                    asm!(@"SP"),
-                    asm!(AM = M + 1),
-                    asm!(A = A - 1),
-                    asm!(M = 0),
-                ])
-                .take(*locals as usize)
-                .flatten();
-
-                let mut instr = vec![asm!((func))];
-                instr.extend(init);
-                instr
-            }
+            Command::Function(func, locals) => self.translate_function(func, *locals),
             Command::Call(func, args) => self.translate_call(func.to_owned(), *args),
             Command::Return => vec![asm!(@"RETURN"), asm!(0;JMP)],
         }
@@ -380,15 +366,52 @@ impl<'a> Translator<'a> {
         [load, push].concat()
     }
 
+    fn translate_function(&self, func: &str, locals: u16) -> Vec<Instruction> {
+        let init = match locals {
+            0 => vec![],
+            1 | 2 => std::iter::repeat(vec![
+                asm!(@"SP"),
+                asm!(AM = M + 1),
+                asm!(A = A - 1),
+                asm!(M = 0),
+            ])
+            .take(locals as usize)
+            .flatten()
+            .collect(),
+            _ => {
+                let label = format!("LOOP_{}", func);
+                vec![
+                    asm!(@locals),
+                    asm!(D = A),
+                    asm!((label.clone())),
+                    asm!(D = D - 1),
+                    asm!(@"SP"),
+                    asm!(AM = M + 1),
+                    asm!(A = A - 1),
+                    asm!(M = 0),
+                    asm!(@label),
+                    asm!(D;JGT),
+                ]
+            }
+        };
+
+        let mut instr = vec![asm!((func))];
+        instr.extend(init);
+        instr
+    }
+
     fn translate_call(&mut self, func: String, args: u16) -> Vec<Instruction> {
         let label = format!("RET_ADDRESS_{}", self.count);
         self.count += 1;
 
-        vec![
-            asm!(@args), // TODO: optimise
-            asm!(D = A),
-            asm!(@"R13"),
-            asm!(M = D),
+        let mut instr = match args {
+            0 => vec![asm!(@"R13"), asm!(M = 0)],
+            1 => vec![asm!(@"R13"), asm!(M = 1)],
+            2 => vec![asm!(@"R13"), asm!(D = 1), asm!(M = D + 1)],
+            _ => vec![asm!(@args), asm!(D = A), asm!(@"R13"), asm!(M = D)],
+        };
+
+        instr.extend_from_slice(&[
             asm!(@func),
             asm!(D = A),
             asm!(@"R14"),
@@ -398,6 +421,8 @@ impl<'a> Translator<'a> {
             asm!(@"CALL"),
             asm!(0;JMP),
             asm!((label)),
-        ]
+        ]);
+
+        instr
     }
 }
