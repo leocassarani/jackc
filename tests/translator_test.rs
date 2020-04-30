@@ -27,6 +27,29 @@ fn simple_add_test() {
 }
 
 #[test]
+fn consts_test() {
+    let rom = translate_and_assemble(
+        &[
+            Command::Push(Segment::Constant, 32768), // 2^15
+            Command::Push(Segment::Constant, 16384), // 2^14
+            Command::Add,
+            Command::Push(Segment::Constant, 65535), // 2^16 - 1 = 0xffff
+            Command::Push(Segment::Constant, 32767), // 2^15 - 1 = 0x7fff
+            Command::And,
+        ],
+        None,
+    );
+
+    let mut emulator = Emulator::new(&rom);
+    emulator.ram.init(&[(0, 256)]);
+    emulator.run(60);
+
+    assert_eq!(emulator.ram.get(0), 258);
+    assert_eq!(emulator.ram.get(256), 49152);
+    assert_eq!(emulator.ram.get(257), 32767);
+}
+
+#[test]
 fn stack_test() {
     let rom = translate_and_assemble(
         &[

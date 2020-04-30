@@ -279,7 +279,7 @@ impl<'a> Translator<'a> {
                     }
                 }
             }
-            Command::Push(Segment::Constant, n) => self.translate_push(&[asm!(@*n), asm!(D = A)]),
+            Command::Push(Segment::Constant, n) => self.translate_push_const(*n),
             Command::Push(Segment::Pointer, 0) => {
                 self.translate_push(&[asm!(@"THIS"), asm!(D = M)])
             }
@@ -359,6 +359,27 @@ impl<'a> Translator<'a> {
         instr.extend_from_slice(write);
         instr.push(asm!(M = D));
         instr
+    }
+
+    fn translate_push_const(&self, n: u16) -> Vec<Instruction> {
+        match n {
+            0 => vec![asm!(@"SP"), asm!(AM = M + 1), asm!(A = A - 1), asm!(M = 0)],
+            1 => vec![asm!(@"SP"), asm!(AM = M + 1), asm!(A = A - 1), asm!(M = 1)],
+            2 => vec![
+                asm!(@"SP"),
+                asm!(AM = M + 1),
+                asm!(A = A - 1),
+                asm!(D = 1),
+                asm!(M = D + 1),
+            ],
+            _ if n >> 15 == 0 => self.translate_push(&[asm!(@n), asm!(D = A)]),
+            _ => {
+                // If the MSB of the constant value is high, then it won't fit in an A-instruction.
+                // Instead, we flip all the bits of the immediate value to guarantee that it will
+                // have a low MSB, then flip them again to load it into D.
+                self.translate_push(&[asm!(@!n), asm!(D = !A)])
+            }
+        }
     }
 
     fn translate_push(&self, load: &[Instruction]) -> Vec<Instruction> {
