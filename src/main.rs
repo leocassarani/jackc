@@ -1,3 +1,4 @@
+use jackc::asm;
 use jackc::jack::{Compiler, Parser, Tokenizer};
 use jackc::vm::Translator;
 use std::{env, fs, io};
@@ -11,10 +12,10 @@ fn main() -> io::Result<()> {
     let class = parser.parse().expect("parsing error");
 
     let mut compiler = Compiler::new(&class);
-    let cmds = compiler.compile();
+    let module = compiler.compile();
 
-    let mut translator = Translator::new(&cmds);
-    for instr in translator.translate() {
+    let mut translator = Translator::new(&module);
+    for instr in asm::assemble(translator.translate()) {
         println!("{}", instr);
     }
 

@@ -1,16 +1,18 @@
 use jackc::asm;
 use jackc::hack::Emulator;
-use jackc::vm::{Command, Segment, Translator};
+use jackc::vm::{Command, Module, Segment, Translator};
 
-fn translate_and_assemble(cmds: &[Command], init: Option<String>) -> Vec<u16> {
-    let mut translator = Translator::new(cmds).init(init);
+fn translate_and_assemble(name: &str, cmds: Vec<Command>, init: Option<String>) -> Vec<u16> {
+    let module = Module::new(name.to_owned(), cmds);
+    let mut translator = Translator::new(&module).init(init);
     asm::assemble(translator.translate())
 }
 
 #[test]
 fn simple_add_test() {
     let rom = translate_and_assemble(
-        &[
+        "SimpleAdd",
+        vec![
             Command::Push(Segment::Constant, 7),
             Command::Push(Segment::Constant, 8),
             Command::Add,
@@ -29,7 +31,8 @@ fn simple_add_test() {
 #[test]
 fn consts_test() {
     let rom = translate_and_assemble(
-        &[
+        "Consts",
+        vec![
             Command::Push(Segment::Constant, 32768), // 2^15
             Command::Push(Segment::Constant, 16384), // 2^14
             Command::Add,
@@ -52,7 +55,8 @@ fn consts_test() {
 #[test]
 fn stack_test() {
     let rom = translate_and_assemble(
-        &[
+        "StackTest",
+        vec![
             Command::Push(Segment::Constant, 17),
             Command::Push(Segment::Constant, 17),
             Command::Eq,
@@ -115,7 +119,8 @@ fn stack_test() {
 #[test]
 fn basic_test() {
     let rom = translate_and_assemble(
-        &[
+        "BasicTest",
+        vec![
             Command::Push(Segment::Constant, 10),
             Command::Pop(Segment::Local, 0),
             Command::Push(Segment::Constant, 21),
@@ -166,7 +171,8 @@ fn basic_test() {
 #[test]
 fn pointer_test() {
     let rom = translate_and_assemble(
-        &[
+        "PointerTest",
+        vec![
             Command::Push(Segment::Constant, 3030),
             Command::Pop(Segment::Pointer, 0),
             Command::Push(Segment::Constant, 3040),
@@ -200,7 +206,8 @@ fn pointer_test() {
 #[test]
 fn static_test() {
     let rom = translate_and_assemble(
-        &[
+        "StaticTest",
+        vec![
             Command::Push(Segment::Constant, 111),
             Command::Push(Segment::Constant, 333),
             Command::Push(Segment::Constant, 888),
@@ -226,7 +233,8 @@ fn static_test() {
 #[test]
 fn basic_loop() {
     let rom = translate_and_assemble(
-        &[
+        "BasicLoop",
+        vec![
             Command::Push(Segment::Constant, 0),
             Command::Pop(Segment::Local, 0),
             Command::Label("LOOP_START".into()),
@@ -256,7 +264,8 @@ fn basic_loop() {
 #[test]
 fn fibonacci_series() {
     let rom = translate_and_assemble(
-        &[
+        "FibonacciSeries",
+        vec![
             Command::Push(Segment::Argument, 1),
             Command::Pop(Segment::Pointer, 1),
             Command::Push(Segment::Constant, 0),
@@ -307,7 +316,8 @@ fn fibonacci_series() {
 #[test]
 fn simple_function() {
     let rom = translate_and_assemble(
-        &[
+        "SimpleFunction",
+        vec![
             Command::Function("SimpleFunction.test".into(), 2),
             Command::Push(Segment::Local, 0),
             Command::Push(Segment::Local, 1),
@@ -350,7 +360,8 @@ fn simple_function() {
 #[test]
 fn nested_call() {
     let rom = translate_and_assemble(
-        &[
+        "Sys",
+        vec![
             Command::Function("Sys.init".into(), 0),
             Command::Call("Sys.main".into(), 0),
             Command::Pop(Segment::Temp, 1),

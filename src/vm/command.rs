@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Command {
     Add,
     Sub,

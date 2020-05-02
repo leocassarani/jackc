@@ -18,7 +18,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile(&mut self) -> Vec<vm::Command> {
+    pub fn compile(&mut self) -> vm::Module {
         self.symbols.reset();
 
         for vars in &self.class.vars {
@@ -28,11 +28,14 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        self.class
+        let cmds = self
+            .class
             .subs
             .iter()
             .flat_map(|sub| self.compile_subroutine(sub))
-            .collect()
+            .collect();
+
+        vm::Module::new(self.class.name.clone(), cmds)
     }
 
     fn compile_subroutine(&mut self, sub: &Subroutine) -> Vec<vm::Command> {
