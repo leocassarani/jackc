@@ -12,9 +12,9 @@ fn main() -> io::Result<()> {
     let class = parser.parse().expect("parsing error");
 
     let mut compiler = Compiler::new(&class);
-    let module = compiler.compile();
+    let modules = &[compiler.compile()];
 
-    let mut translator = Translator::new(&module);
+    let mut translator = Translator::new(modules);
     for instr in asm::assemble(translator.translate()) {
         println!("{}", instr);
     }

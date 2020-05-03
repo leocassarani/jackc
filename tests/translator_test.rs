@@ -3,8 +3,8 @@ use jackc::hack::Emulator;
 use jackc::vm::{Command, Module, Segment, Translator};
 
 fn translate_and_assemble(name: &str, cmds: Vec<Command>, init: Option<String>) -> Vec<u16> {
-    let module = Module::new(name.to_owned(), cmds);
-    let mut translator = Translator::new(&module).init(init);
+    let modules = &[Module::new(name.to_owned(), cmds)];
+    let mut translator = Translator::new(modules).init(init);
     asm::assemble(translator.translate())
 }
 
@@ -402,4 +402,54 @@ fn nested_call() {
     assert_eq!(emulator.ram.get(2), 256);
     assert_eq!(emulator.ram.get(5), 135);
     assert_eq!(emulator.ram.get(6), 246);
+}
+
+#[test]
+fn finbonacci_element() {
+    let modules = &[
+        Module::new(
+            "Sys".into(),
+            vec![
+                Command::Function("Sys.init".into(), 0),
+                Command::Push(Segment::Constant, 4),
+                Command::Call("Main.fibonacci".into(), 1),
+                Command::Label("WHILE".into()),
+                Command::Goto("WHILE".into()),
+            ],
+        ),
+        Module::new(
+            "Main".into(),
+            vec![
+                Command::Function("Main.fibonacci".into(), 0),
+                Command::Push(Segment::Argument, 0),
+                Command::Push(Segment::Constant, 2),
+                Command::Lt,
+                Command::IfGoto("IF_TRUE".into()),
+                Command::Goto("IF_FALSE".into()),
+                Command::Label("IF_TRUE".into()),
+                Command::Push(Segment::Argument, 0),
+                Command::Return,
+                Command::Label("IF_FALSE".into()),
+                Command::Push(Segment::Argument, 0),
+                Command::Push(Segment::Constant, 2),
+                Command::Sub,
+                Command::Call("Main.fibonacci".into(), 1),
+                Command::Push(Segment::Argument, 0),
+                Command::Push(Segment::Constant, 1),
+                Command::Sub,
+                Command::Call("Main.fibonacci".into(), 1),
+                Command::Add,
+                Command::Return,
+            ],
+        ),
+    ];
+
+    let mut translator = Translator::new(modules);
+    let rom = asm::assemble(translator.translate());
+
+    let mut emulator = Emulator::new(&rom);
+    emulator.run(6000);
+
+    assert_eq!(emulator.ram.get(0), 262);
+    assert_eq!(emulator.ram.get(261), 3);
 }

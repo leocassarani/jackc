@@ -5,15 +5,15 @@ use crate::asm::Instruction;
 const DEFAULT_INIT: &str = "Sys.init";
 
 pub struct Translator<'a> {
-    module: &'a Module,
+    modules: &'a [Module],
     init: Option<String>,
     count: usize,
 }
 
 impl<'a> Translator<'a> {
-    pub fn new(module: &'a Module) -> Self {
+    pub fn new(modules: &'a [Module]) -> Self {
         Translator {
-            module,
+            modules,
             init: Some(DEFAULT_INIT.to_owned()),
             count: 0,
         }
@@ -46,16 +46,19 @@ impl<'a> Translator<'a> {
             prog.extend(self.translate_call(func, 0));
         }
 
-        prog.extend(
-            self.module
-                .cmds
-                .iter()
-                .flat_map(|cmd| self.translate_cmd(cmd)),
-        );
+        for module in self.modules {
+            prog.extend(
+                module
+                    .cmds
+                    .iter()
+                    .flat_map(|cmd| self.translate_cmd(module, cmd)),
+            );
+        }
+
         prog
     }
 
-    fn translate_cmd(&mut self, cmd: &Command) -> Vec<Instruction> {
+    fn translate_cmd(&mut self, module: &Module, cmd: &Command) -> Vec<Instruction> {
         match cmd {
             Command::Add => self.translate_binary_op(asm!(M = D + M)),
             Command::Sub => self.translate_binary_op(asm!(M = M - D)),
@@ -69,7 +72,7 @@ impl<'a> Translator<'a> {
             Command::Pop(Segment::Pointer, 0) => self.translate_pop(&[asm!(@"THIS")]),
             Command::Pop(Segment::Pointer, 1) => self.translate_pop(&[asm!(@"THAT")]),
             Command::Pop(Segment::Temp, idx) => self.translate_pop(&[temp_register(*idx)]),
-            Command::Pop(Segment::Static, idx) => self.translate_pop(&[self.static_addr(*idx)]),
+            Command::Pop(Segment::Static, idx) => self.translate_pop(&[static_addr(module, *idx)]),
             Command::Pop(segment, idx) => {
                 let register = segment_register(*segment);
                 match idx {
@@ -106,7 +109,7 @@ impl<'a> Translator<'a> {
                 self.translate_push(&[temp_register(*idx), asm!(D = M)])
             }
             Command::Push(Segment::Static, idx) => {
-                self.translate_push(&[self.static_addr(*idx), asm!(D = M)])
+                self.translate_push(&[static_addr(module, *idx), asm!(D = M)])
             }
             Command::Push(segment, idx) => {
                 let register = segment_register(*segment);
@@ -261,11 +264,6 @@ impl<'a> Translator<'a> {
         ]);
 
         instr
-    }
-
-    fn static_addr(&self, idx: u16) -> Instruction {
-        let symbol = format!("{}.{}", self.module.name, idx);
-        asm!(@symbol)
     }
 }
 
@@ -451,4 +449,9 @@ fn segment_register(seg: Segment) -> Instruction {
         Segment::That => asm!(@"THAT"),
         _ => panic!("unexpected segment: {}", seg),
     }
+}
+
+fn static_addr(module: &Module, idx: u16) -> Instruction {
+    let symbol = format!("{}.{}", module.name, idx);
+    asm!(@symbol)
 }
