@@ -1,13 +1,14 @@
 use super::*;
 use crate::asm;
 use crate::asm::Instruction;
+use crate::labels::Labeller;
 
 const DEFAULT_INIT: &str = "Sys.init";
 
 pub struct Translator<'a> {
     modules: &'a [Module],
     init: Option<String>,
-    count: usize,
+    labeller: Labeller,
     function: Option<&'a str>,
 }
 
@@ -16,7 +17,7 @@ impl<'a> Translator<'a> {
         Translator {
             modules,
             init: Some(DEFAULT_INIT.to_owned()),
-            count: 0,
+            labeller: Labeller::new(),
             function: None,
         }
     }
@@ -68,9 +69,7 @@ impl<'a> Translator<'a> {
             Command::And => self.translate_binary_op(asm!(M = D & M)),
             Command::Or => self.translate_binary_op(asm!(M = D | M)),
             Command::Not => self.translate_unary_op(asm!(M = !M)),
-            Command::Eq => self.translate_comparison(asm!(@"EQ")),
-            Command::Gt => self.translate_comparison(asm!(@"GT")),
-            Command::Lt => self.translate_comparison(asm!(@"LT")),
+            Command::Eq | Command::Gt | Command::Lt => self.translate_comparison(cmd),
             Command::Pop(Segment::Pointer, 0) => self.translate_pop(&[asm!(@"THIS")]),
             Command::Pop(Segment::Pointer, 1) => self.translate_pop(&[asm!(@"THAT")]),
             Command::Pop(Segment::Temp, idx) => self.translate_pop(&[temp_register(*idx)]),
@@ -156,9 +155,13 @@ impl<'a> Translator<'a> {
         ]
     }
 
-    fn translate_comparison(&mut self, op: Instruction) -> Vec<Instruction> {
-        let label = format!("RET_ADDRESS_{}", self.count);
-        self.count += 1;
+    fn translate_comparison(&mut self, cmd: &Command) -> Vec<Instruction> {
+        let (label, op) = match cmd {
+            Command::Eq => (self.labeller.generate("RET_ADDRESS_EQ"), asm!(@"EQ")),
+            Command::Gt => (self.labeller.generate("RET_ADDRESS_GT"), asm!(@"GT")),
+            Command::Lt => (self.labeller.generate("RET_ADDRESS_LT"), asm!(@"LT")),
+            _ => panic!("unexpected comparison command: {}", cmd),
+        };
 
         vec![
             asm!(@label.clone()),
@@ -203,17 +206,17 @@ impl<'a> Translator<'a> {
     }
 
     fn translate_label(&self, label: &str) -> Vec<Instruction> {
-        let full_label = full_label_name(self.function, label);
+        let full_label = func_label_name(self.function, label);
         vec![asm!((full_label))]
     }
 
     fn translate_goto(&self, label: &str) -> Vec<Instruction> {
-        let full_label = full_label_name(self.function, label);
+        let full_label = func_label_name(self.function, label);
         vec![asm!(@full_label), asm!(0;JMP)]
     }
 
     fn translate_if_goto(&self, label: &str) -> Vec<Instruction> {
-        let full_label = full_label_name(self.function, label);
+        let full_label = func_label_name(self.function, label);
         vec![
             asm!(@"SP"),
             asm!(AM = M - 1),
@@ -260,8 +263,7 @@ impl<'a> Translator<'a> {
     }
 
     fn translate_call(&mut self, func: String, args: u16) -> Vec<Instruction> {
-        let label = format!("RET_ADDRESS_{}", self.count);
-        self.count += 1;
+        let label = self.labeller.generate("RET_ADDRESS_CALL");
 
         let mut instr = match args {
             0 => vec![asm!(@"R13"), asm!(M = 0)],
@@ -475,6 +477,6 @@ fn static_addr(module: &Module, idx: u16) -> Instruction {
     asm!(@symbol)
 }
 
-fn full_label_name(function: Option<&str>, label: &str) -> String {
+fn func_label_name(function: Option<&str>, label: &str) -> String {
     function.map_or_else(|| label.to_owned(), |func| format!("{}${}", func, label))
 }

@@ -1,7 +1,7 @@
 use super::parser::*;
 use super::symbol_table::{Kind, SymbolTable, Type};
+use crate::labels::Labeller;
 use crate::vm;
-use std::collections::HashMap;
 
 pub struct Compiler<'a> {
     class: &'a Class,
@@ -369,28 +369,5 @@ impl<'a> Compiler<'a> {
             UnaryOp::Minus => vm::Command::Neg,
             UnaryOp::Not => vm::Command::Not,
         }
-    }
-}
-
-struct Labeller {
-    labels: HashMap<&'static str, u16>,
-}
-
-impl Labeller {
-    fn new() -> Self {
-        Labeller {
-            labels: HashMap::new(),
-        }
-    }
-
-    fn generate(&mut self, prefix: &'static str) -> String {
-        let count = self.labels.entry(prefix).or_insert(0);
-        let label = format!("{}{}", prefix, *count);
-        *count += 1;
-        label
-    }
-
-    fn reset(&mut self) {
-        self.labels.clear();
     }
 }
