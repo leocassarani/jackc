@@ -453,3 +453,71 @@ fn finbonacci_element() {
     assert_eq!(emulator.ram.get(0), 262);
     assert_eq!(emulator.ram.get(261), 3);
 }
+
+#[test]
+fn statics_test() {
+    let modules = &[
+        Module::new(
+            "Sys".into(),
+            vec![
+                Command::Function("Sys.init".into(), 0),
+                Command::Push(Segment::Constant, 6),
+                Command::Push(Segment::Constant, 8),
+                Command::Call("Class1.set".into(), 2),
+                Command::Pop(Segment::Temp, 0),
+                Command::Push(Segment::Constant, 23),
+                Command::Push(Segment::Constant, 15),
+                Command::Call("Class2.set".into(), 2),
+                Command::Pop(Segment::Temp, 0),
+                Command::Call("Class1.get".into(), 0),
+                Command::Call("Class2.get".into(), 0),
+                Command::Label("WHILE".into()),
+                Command::Goto("WHILE".into()),
+            ],
+        ),
+        Module::new(
+            "Class1".into(),
+            vec![
+                Command::Function("Class1.set".into(), 0),
+                Command::Push(Segment::Argument, 0),
+                Command::Pop(Segment::Static, 0),
+                Command::Push(Segment::Argument, 1),
+                Command::Pop(Segment::Static, 1),
+                Command::Push(Segment::Constant, 0),
+                Command::Return,
+                Command::Function("Class1.get".into(), 0),
+                Command::Push(Segment::Static, 0),
+                Command::Push(Segment::Static, 1),
+                Command::Sub,
+                Command::Return,
+            ],
+        ),
+        Module::new(
+            "Class2".into(),
+            vec![
+                Command::Function("Class2.set".into(), 0),
+                Command::Push(Segment::Argument, 0),
+                Command::Pop(Segment::Static, 0),
+                Command::Push(Segment::Argument, 1),
+                Command::Pop(Segment::Static, 1),
+                Command::Push(Segment::Constant, 0),
+                Command::Return,
+                Command::Function("Class2.get".into(), 0),
+                Command::Push(Segment::Static, 0),
+                Command::Push(Segment::Static, 1),
+                Command::Sub,
+                Command::Return,
+            ],
+        ),
+    ];
+
+    let mut translator = Translator::new(modules);
+    let rom = asm::assemble(translator.translate());
+
+    let mut emulator = Emulator::new(&rom);
+    emulator.run(2500);
+
+    assert_eq!(emulator.ram.get(0), 263);
+    assert_eq!(emulator.ram.get(261), -2i16 as u16);
+    assert_eq!(emulator.ram.get(262), 8);
+}
