@@ -8,6 +8,7 @@ pub struct Translator<'a> {
     modules: &'a [Module],
     init: Option<String>,
     count: usize,
+    function: Option<&'a str>,
 }
 
 impl<'a> Translator<'a> {
@@ -16,6 +17,7 @@ impl<'a> Translator<'a> {
             modules,
             init: Some(DEFAULT_INIT.to_owned()),
             count: 0,
+            function: None,
         }
     }
 
@@ -58,7 +60,7 @@ impl<'a> Translator<'a> {
         prog
     }
 
-    fn translate_cmd(&mut self, module: &Module, cmd: &Command) -> Vec<Instruction> {
+    fn translate_cmd(&mut self, module: &Module, cmd: &'a Command) -> Vec<Instruction> {
         match cmd {
             Command::Add => self.translate_binary_op(asm!(M = D + M)),
             Command::Sub => self.translate_binary_op(asm!(M = M - D)),
@@ -131,15 +133,9 @@ impl<'a> Translator<'a> {
                     ]),
                 }
             }
-            Command::Label(label) => vec![asm!((label))],
-            Command::Goto(label) => vec![asm!(@label), asm!(0;JMP)],
-            Command::IfGoto(label) => vec![
-                asm!(@"SP"),
-                asm!(AM = M - 1),
-                asm!(D = M),
-                asm!(@label),
-                asm!(D;JNE),
-            ],
+            Command::Label(label) => self.translate_label(label),
+            Command::Goto(label) => self.translate_goto(label),
+            Command::IfGoto(label) => self.translate_if_goto(label),
             Command::Function(func, locals) => self.translate_function(func, *locals),
             Command::Call(func, args) => self.translate_call(func.to_owned(), *args),
             Command::Return => vec![asm!(@"RETURN"), asm!(0;JMP)],
@@ -206,7 +202,30 @@ impl<'a> Translator<'a> {
         [load, push].concat()
     }
 
-    fn translate_function(&self, func: &str, locals: u16) -> Vec<Instruction> {
+    fn translate_label(&self, label: &str) -> Vec<Instruction> {
+        let full_label = full_label_name(self.function, label);
+        vec![asm!((full_label))]
+    }
+
+    fn translate_goto(&self, label: &str) -> Vec<Instruction> {
+        let full_label = full_label_name(self.function, label);
+        vec![asm!(@full_label), asm!(0;JMP)]
+    }
+
+    fn translate_if_goto(&self, label: &str) -> Vec<Instruction> {
+        let full_label = full_label_name(self.function, label);
+        vec![
+            asm!(@"SP"),
+            asm!(AM = M - 1),
+            asm!(D = M),
+            asm!(@full_label),
+            asm!(D;JNE),
+        ]
+    }
+
+    fn translate_function(&mut self, func: &'a str, locals: u16) -> Vec<Instruction> {
+        self.function = Some(func);
+
         let init = match locals {
             0 => vec![],
             1 | 2 => std::iter::repeat(vec![
@@ -454,4 +473,8 @@ fn segment_register(seg: Segment) -> Instruction {
 fn static_addr(module: &Module, idx: u16) -> Instruction {
     let symbol = format!("{}.{}", module.name, idx);
     asm!(@symbol)
+}
+
+fn full_label_name(function: Option<&str>, label: &str) -> String {
+    function.map_or_else(|| label.to_owned(), |func| format!("{}${}", func, label))
 }

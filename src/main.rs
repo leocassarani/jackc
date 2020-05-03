@@ -16,7 +16,7 @@ fn main() -> io::Result<()> {
 
     let mut translator = Translator::new(modules);
     for instr in asm::assemble(translator.translate()) {
-        println!("{}", instr);
+        println!("{:016b}", instr);
     }
 
     Ok(())
