@@ -1,7 +1,9 @@
 mod command;
+mod parser;
 mod translator;
 
 pub use command::*;
+pub use parser::*;
 pub use translator::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
