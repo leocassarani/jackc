@@ -1,13 +1,20 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use clap::{crate_version, App, Arg};
-use jackc::asm;
+use jackc::asm::{self, Instruction};
 use jackc::jack::{self, Compiler, Tokenizer};
 use jackc::vm::{self, Module, Translator};
 use std::{
-    fs,
+    fs::{self, File},
     io::{self, Write},
     path::Path,
 };
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum Format {
+    Asm,
+    Bin,
+    Hack,
+}
 
 fn main() -> io::Result<()> {
     let matches = App::new("jackc")
@@ -36,9 +43,23 @@ fn main() -> io::Result<()> {
                 .help("Outputs a Hack file")
                 .conflicts_with_all(&["asm", "bin"]),
         )
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .help("Writes the output to <file>")
+                .takes_value(true),
+        )
         .get_matches();
 
     let path = matches.value_of("file").map(Path::new).unwrap();
+
+    let format = if matches.is_present("asm") {
+        Format::Asm
+    } else if matches.is_present("bin") {
+        Format::Bin
+    } else {
+        Format::Hack
+    };
 
     let modules = if path.is_dir() {
         compile_dir(path)?
@@ -48,24 +69,17 @@ fn main() -> io::Result<()> {
 
     let insts = Translator::new(&modules).translate();
 
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-
-    if matches.is_present("asm") {
-        for inst in insts {
-            writeln!(out, "{}", inst)?;
+    match matches.value_of("output") {
+        Some(f) => {
+            let mut file = File::create(f)?;
+            write_output(&mut file, &insts, format)
         }
-    } else if matches.is_present("bin") {
-        for inst in asm::assemble(insts) {
-            out.write_u16::<BigEndian>(inst)?;
-        }
-    } else {
-        for inst in asm::assemble(insts) {
-            writeln!(out, "{:016b}", inst)?;
+        None => {
+            let stdout = io::stdout();
+            let mut out = stdout.lock();
+            write_output(&mut out, &insts, format)
         }
     }
-
-    Ok(())
 }
 
 fn compile_dir(dir: &Path) -> io::Result<Vec<Module>> {
@@ -114,4 +128,29 @@ fn compile_vm(path: &Path) -> io::Result<Module> {
     let cmds = vm::parse(&source).expect("parsing error");
 
     Ok(Module::new(name, cmds))
+}
+
+fn write_output<W>(out: &mut W, insts: &[Instruction], format: Format) -> io::Result<()>
+where
+    W: Write,
+{
+    match format {
+        Format::Asm => {
+            for inst in insts {
+                writeln!(out, "{}", inst)?;
+            }
+        }
+        Format::Bin => {
+            for inst in asm::assemble(insts) {
+                out.write_u16::<BigEndian>(inst)?;
+            }
+        }
+        Format::Hack => {
+            for inst in asm::assemble(insts) {
+                writeln!(out, "{:016b}", inst)?;
+            }
+        }
+    };
+
+    Ok(())
 }

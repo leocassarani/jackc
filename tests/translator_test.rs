@@ -5,7 +5,7 @@ use jackc::vm::{Command, Module, Segment, Translator};
 fn translate_and_assemble(name: &str, cmds: Vec<Command>, init: Option<String>) -> Vec<u16> {
     let modules = &[Module::new(name.to_owned(), cmds)];
     let mut translator = Translator::new(modules).init(init);
-    asm::assemble(translator.translate())
+    asm::assemble(&translator.translate())
 }
 
 #[test]
@@ -445,7 +445,7 @@ fn finbonacci_element() {
     ];
 
     let mut translator = Translator::new(modules);
-    let rom = asm::assemble(translator.translate());
+    let rom = asm::assemble(&translator.translate());
 
     let mut emulator = Emulator::new(&rom);
     emulator.run(6000);
@@ -512,7 +512,7 @@ fn statics_test() {
     ];
 
     let mut translator = Translator::new(modules);
-    let rom = asm::assemble(translator.translate());
+    let rom = asm::assemble(&translator.translate());
 
     let mut emulator = Emulator::new(&rom);
     emulator.run(2500);

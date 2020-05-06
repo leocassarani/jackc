@@ -27,7 +27,7 @@ const DEFAULT_SYMBOLS: &[(&str, u16)] = &[
     ("KBD", 0x6000),
 ];
 
-pub fn assemble(prog: Vec<Instruction>) -> Vec<u16> {
+pub fn assemble(prog: &[Instruction]) -> Vec<u16> {
     let mut symbols: HashMap<String, u16> = DEFAULT_SYMBOLS
         .into_iter()
         .map(|&(sym, idx)| (sym.to_owned(), idx))
