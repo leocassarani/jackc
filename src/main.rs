@@ -1,29 +1,68 @@
+use byteorder::{BigEndian, WriteBytesExt};
+use clap::{crate_version, App, Arg};
 use jackc::asm;
 use jackc::jack::{self, Compiler, Tokenizer};
 use jackc::vm::{self, Module, Translator};
 use std::{
-    env, fs,
+    fs,
     io::{self, Write},
     path::Path,
 };
 
 fn main() -> io::Result<()> {
-    let filename = env::args().skip(1).next().expect("missing filename");
-    let path = Path::new(&filename);
+    let matches = App::new("jackc")
+        .version(crate_version!())
+        .about("A compiler for the Jack programming language")
+        .arg(
+            Arg::with_name("file")
+                .help("File or directory to be compiled")
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("asm")
+                .long("asm")
+                .help("Outputs an assembly file")
+                .conflicts_with_all(&["bin", "hack"]),
+        )
+        .arg(
+            Arg::with_name("bin")
+                .long("bin")
+                .help("Outputs a binary file")
+                .conflicts_with_all(&["asm", "hack"]),
+        )
+        .arg(
+            Arg::with_name("hack")
+                .long("hack")
+                .help("Outputs a Hack file")
+                .conflicts_with_all(&["asm", "bin"]),
+        )
+        .get_matches();
 
-    let modules: Vec<_> = if path.is_dir() {
+    let path = matches.value_of("file").map(Path::new).unwrap();
+
+    let modules = if path.is_dir() {
         compile_dir(path)?
     } else {
-        let module = compile_file(path).expect("unexpected file extension")?;
-        vec![module]
+        vec![compile_file(path).expect("unexpected file extension")?]
     };
+
+    let insts = Translator::new(&modules).translate();
 
     let stdout = io::stdout();
     let mut out = stdout.lock();
 
-    let insts = Translator::new(&modules).translate();
-    for inst in asm::assemble(insts) {
-        writeln!(out, "{:016b}", inst)?;
+    if matches.is_present("asm") {
+        for inst in insts {
+            writeln!(out, "{}", inst)?;
+        }
+    } else if matches.is_present("bin") {
+        for inst in asm::assemble(insts) {
+            out.write_u16::<BigEndian>(inst)?;
+        }
+    } else {
+        for inst in asm::assemble(insts) {
+            writeln!(out, "{:016b}", inst)?;
+        }
     }
 
     Ok(())
