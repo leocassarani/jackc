@@ -16,6 +16,16 @@ enum Format {
     Hack,
 }
 
+impl Format {
+    fn extension(self) -> &'static str {
+        match self {
+            Format::Asm => "asm",
+            Format::Bin => "bin",
+            Format::Hack => "hack",
+        }
+    }
+}
+
 fn main() -> io::Result<()> {
     let matches = App::new("jackc")
         .version(crate_version!())
@@ -47,11 +57,22 @@ fn main() -> io::Result<()> {
             Arg::with_name("output")
                 .short("o")
                 .help("Writes the output to <file>")
-                .takes_value(true),
+                .takes_value(true)
+                .conflicts_with("stdout"),
+        )
+        .arg(
+            Arg::with_name("stdout")
+                .long("stdout")
+                .help("Writes the output to stdout")
+                .conflicts_with("output"),
         )
         .get_matches();
 
-    let path = matches.value_of("file").map(Path::new).unwrap();
+    let path = matches
+        .value_of("file")
+        .map(Path::new)
+        .unwrap()
+        .canonicalize()?;
 
     let format = if matches.is_present("asm") {
         Format::Asm
@@ -62,23 +83,28 @@ fn main() -> io::Result<()> {
     };
 
     let modules = if path.is_dir() {
-        compile_dir(path)?
+        compile_dir(&path)?
     } else {
-        vec![compile_file(path).expect("unexpected file extension")?]
+        vec![compile_file(&path).expect("unexpected file extension")?]
     };
 
     let insts = Translator::new(&modules).translate();
 
-    match matches.value_of("output") {
-        Some(f) => {
-            let mut file = File::create(f)?;
-            write_output(&mut file, &insts, format)
-        }
-        None => {
-            let stdout = io::stdout();
-            let mut out = stdout.lock();
-            write_output(&mut out, &insts, format)
-        }
+    if matches.is_present("stdout") {
+        let stdout = io::stdout();
+        let mut out = stdout.lock();
+        write_output(&mut out, &insts, format)
+    } else {
+        let filename = matches
+            .value_of("output")
+            .map(|s| s.to_owned())
+            .unwrap_or_else(|| {
+                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("out");
+                format!("{}.{}", stem, format.extension())
+            });
+
+        let mut file = File::create(filename)?;
+        write_output(&mut file, &insts, format)
     }
 }
 
