@@ -91,6 +91,9 @@ fn compile_dir(dir: &Path) -> io::Result<Vec<Module>> {
         }
     }
 
+    // Sort modules by name to ensure reproducible builds.
+    mods.sort_by(|a, b| a.name.cmp(&b.name));
+
     Ok(mods)
 }
 
