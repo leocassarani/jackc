@@ -1,5 +1,6 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use clap::{crate_version, App, Arg};
+use failure::{err_msg, Error};
 use jackc::asm::{self, Instruction};
 use jackc::jack::{self, Compiler, Tokenizer};
 use jackc::vm::{self, Module, Translator};
@@ -7,6 +8,7 @@ use std::{
     fs::{self, File},
     io::{self, Write},
     path::Path,
+    process,
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -26,7 +28,17 @@ impl Format {
     }
 }
 
-fn main() -> io::Result<()> {
+fn main() {
+    process::exit(match run() {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            1
+        }
+    });
+}
+
+fn run() -> Result<(), Error> {
     let matches = App::new("jackc")
         .version(crate_version!())
         .about("A compiler for the Jack programming language")
@@ -85,7 +97,7 @@ fn main() -> io::Result<()> {
     let modules = if path.is_dir() {
         compile_dir(&path)?
     } else {
-        vec![compile_file(&path).expect("unexpected file extension")?]
+        vec![compile_file(&path).unwrap_or_else(|| Err(err_msg("unsupported file extension")))?]
     };
 
     let insts = Translator::new(&modules).translate();
@@ -108,7 +120,7 @@ fn main() -> io::Result<()> {
     }
 }
 
-fn compile_dir(dir: &Path) -> io::Result<Vec<Module>> {
+fn compile_dir(dir: &Path) -> Result<Vec<Module>, Error> {
     let mut mods = Vec::new();
 
     for entry in dir.read_dir()? {
@@ -123,7 +135,7 @@ fn compile_dir(dir: &Path) -> io::Result<Vec<Module>> {
     Ok(mods)
 }
 
-fn compile_file(path: &Path) -> Option<io::Result<Module>> {
+fn compile_file(path: &Path) -> Option<Result<Module, Error>> {
     path.extension().and_then(|ext| {
         if ext == "jack" {
             Some(compile_jack(path))
@@ -135,31 +147,31 @@ fn compile_file(path: &Path) -> Option<io::Result<Module>> {
     })
 }
 
-fn compile_jack(path: &Path) -> io::Result<Module> {
+fn compile_jack(path: &Path) -> Result<Module, Error> {
     let source = fs::read_to_string(path)?;
     let tokenizer = Tokenizer::new(&source);
 
     let mut parser = jack::Parser::new(tokenizer);
-    let class = parser.parse().expect("parsing error");
+    let class = parser.parse()?;
 
     let mut compiler = Compiler::new(&class);
     Ok(compiler.compile())
 }
 
-fn compile_vm(path: &Path) -> io::Result<Module> {
+fn compile_vm(path: &Path) -> Result<Module, Error> {
     let name = path
         .file_stem()
-        .expect("invalid file name")
+        .ok_or_else(|| err_msg("invalid file name"))?
         .to_string_lossy()
         .into();
 
     let source = fs::read_to_string(path)?;
-    let cmds = vm::parse(&source).expect("parsing error");
+    let cmds = vm::parse(&source)?;
 
     Ok(Module::new(name, cmds))
 }
 
-fn write_output<W>(out: &mut W, insts: &[Instruction], format: Format) -> io::Result<()>
+fn write_output<W>(out: &mut W, insts: &[Instruction], format: Format) -> Result<(), Error>
 where
     W: Write,
 {

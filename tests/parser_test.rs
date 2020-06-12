@@ -9,8 +9,8 @@ fn array_test_jack_test() {
     let mut parser = Parser::new(tokenizer);
 
     assert_eq!(
-        parser.parse(),
-        Some(Class {
+        parser.parse().unwrap(),
+        Class {
             name: "Main".into(),
             vars: vec![],
             subs: vec![Subroutine {
@@ -149,7 +149,7 @@ fn array_test_jack_test() {
                     ],
                 },
             }],
-        })
+        }
     );
 }
 
@@ -160,8 +160,8 @@ fn square_main_jack_test() {
     let mut parser = Parser::new(tokenizer);
 
     assert_eq!(
-        parser.parse(),
-        Some(Class {
+        parser.parse().unwrap(),
+        Class {
             name: "Main".into(),
             vars: vec![ClassVars {
                 kind: ClassVarKind::Static,
@@ -291,7 +291,7 @@ fn square_main_jack_test() {
                     }
                 }
             ],
-        })
+        }
     );
 }
 
@@ -302,8 +302,8 @@ fn square_jack_test() {
     let mut parser = Parser::new(tokenizer);
 
     assert_eq!(
-        parser.parse(),
-        Some(Class {
+        parser.parse().unwrap(),
+        Class {
             name: "Square".into(),
             vars: vec![
                 ClassVars {
@@ -915,7 +915,7 @@ fn square_jack_test() {
                     },
                 },
             ],
-        })
+        }
     );
 }
 
@@ -926,8 +926,8 @@ fn square_game_jack_test() {
     let mut parser = Parser::new(tokenizer);
 
     assert_eq!(
-        parser.parse(),
-        Some(Class {
+        parser.parse().unwrap(),
+        Class {
             name: "SquareGame".into(),
             vars: vec![
                 ClassVars {
@@ -1244,6 +1244,6 @@ fn square_game_jack_test() {
                     }
                 },
             ],
-        })
+        }
     );
 }

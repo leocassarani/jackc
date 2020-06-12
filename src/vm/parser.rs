@@ -1,12 +1,13 @@
 use super::*;
+use failure::{format_err, Error};
 use std::str::FromStr;
 
-pub fn parse(s: &str) -> Option<Vec<Command>> {
-    s.lines().map(|line| line.parse().ok()).collect()
+pub fn parse(s: &str) -> Result<Vec<Command>, Error> {
+    s.lines().map(|line| line.parse()).collect()
 }
 
 impl FromStr for Command {
-    type Err = ();
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -23,82 +24,78 @@ impl FromStr for Command {
             _ if s.starts_with("pop") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [segment, index] => {
-                        let segment = segment.parse();
-                        let index = index.parse();
-
-                        if segment.is_ok() && index.is_ok() {
-                            Ok(Command::Pop(segment.unwrap(), index.unwrap()))
-                        } else {
-                            Err(())
-                        }
+                        let segment = segment.parse()?;
+                        let index = index.parse()?;
+                        Ok(Command::Pop(segment, index))
                     }
-                    _ => Err(()),
+                    got => Err(format_err!(
+                        "expected a segment followed by a number, found `{}`",
+                        got.join(" ")
+                    )),
                 }
             }
             _ if s.starts_with("push") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [segment, index] => {
-                        let segment = segment.parse();
-                        let index = index.parse();
-
-                        if segment.is_ok() && index.is_ok() {
-                            Ok(Command::Push(segment.unwrap(), index.unwrap()))
-                        } else {
-                            Err(())
-                        }
+                        let segment = segment.parse()?;
+                        let index = index.parse()?;
+                        Ok(Command::Push(segment, index))
                     }
-                    _ => Err(()),
+                    got => Err(format_err!(
+                        "expected a segment followed by a number, found `{}`",
+                        got.join(" ")
+                    )),
                 }
             }
             _ if s.starts_with("label") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [label] => Ok(Command::Label(label.to_string())),
-                    _ => Err(()),
+                    got => Err(format_err!("expected a label, found `{}`", got.join(" "))),
                 }
             }
             _ if s.starts_with("goto") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [label] => Ok(Command::Goto(label.to_string())),
-                    _ => Err(()),
+                    got => Err(format_err!("expected a label, found `{}`", got.join(" "))),
                 }
             }
             _ if s.starts_with("if-goto") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [label] => Ok(Command::IfGoto(label.to_string())),
-                    _ => Err(()),
+                    got => Err(format_err!("expected a label, found `{}`", got.join(" "))),
                 }
             }
             _ if s.starts_with("function") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [function, locals] => {
-                        if let Ok(locals) = locals.parse() {
-                            Ok(Command::Function(function.to_string(), locals))
-                        } else {
-                            Err(())
-                        }
+                        let locals = locals.parse()?;
+                        Ok(Command::Function(function.to_string(), locals))
                     }
-                    _ => Err(()),
+                    got => Err(format_err!(
+                        "expected a function name followed by a number, found `{}`",
+                        got.join(" ")
+                    )),
                 }
             }
             _ if s.starts_with("call") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [function, args] => {
-                        if let Ok(args) = args.parse() {
-                            Ok(Command::Call(function.to_string(), args))
-                        } else {
-                            Err(())
-                        }
+                        let args = args.parse()?;
+                        Ok(Command::Call(function.to_string(), args))
                     }
-                    _ => Err(()),
+                    got => Err(format_err!(
+                        "expected a function name followed by a number, found `{}`",
+                        got.join(" ")
+                    )),
                 }
             }
-            _ => Err(()),
+            _ => Err(format_err!("`{}` is not a valid VM command", s)),
         }
     }
 }
 
 impl FromStr for Segment {
-    type Err = ();
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -110,7 +107,7 @@ impl FromStr for Segment {
             "that" => Ok(Segment::That),
             "pointer" => Ok(Segment::Pointer),
             "temp" => Ok(Segment::Temp),
-            _ => Err(()),
+            _ => Err(format_err!("`{}` is not a valid segment", s)),
         }
     }
 }

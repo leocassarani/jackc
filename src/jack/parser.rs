@@ -1,4 +1,5 @@
 use super::tokenizer::{Keyword, Token, Tokenizer};
+use failure::{err_msg, format_err, Error};
 use std::convert::{TryFrom, TryInto};
 use std::iter::Peekable;
 
@@ -57,13 +58,16 @@ pub enum ClassVarKind {
 }
 
 impl TryFrom<Keyword> for ClassVarKind {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(keyword: Keyword) -> Result<Self, Self::Error> {
         match keyword {
             Keyword::Field => Ok(ClassVarKind::Field),
             Keyword::Static => Ok(ClassVarKind::Static),
-            _ => Err(()),
+            _ => Err(format_err!(
+                "expected either `field` or `static`, found `{}`",
+                keyword
+            )),
         }
     }
 }
@@ -77,7 +81,7 @@ pub enum VarType {
 }
 
 impl TryFrom<Token> for VarType {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(token: Token) -> Result<Self, Self::Error> {
         match token {
@@ -85,7 +89,10 @@ impl TryFrom<Token> for VarType {
             Token::Keyword(Keyword::Char) => Ok(VarType::Char),
             Token::Keyword(Keyword::Boolean) => Ok(VarType::Boolean),
             Token::Identifier(id) => Ok(VarType::ClassName(id)),
-            _ => Err(()),
+            _ => Err(format_err!(
+                "expected one of `int`, `char`, `boolean`, or a class name, found `{}`",
+                token
+            )),
         }
     }
 }
@@ -98,14 +105,17 @@ pub enum SubroutineKind {
 }
 
 impl TryFrom<Keyword> for SubroutineKind {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(keyword: Keyword) -> Result<Self, Self::Error> {
         match keyword {
             Keyword::Constructor => Ok(SubroutineKind::Constructor),
             Keyword::Function => Ok(SubroutineKind::Function),
             Keyword::Method => Ok(SubroutineKind::Method),
-            _ => Err(()),
+            _ => Err(format_err!(
+                "expected one of `constructor`, `function`, `method`, found `{}`",
+                keyword
+            )),
         }
     }
 }
@@ -117,7 +127,7 @@ pub enum SubroutineType {
 }
 
 impl TryFrom<Token> for SubroutineType {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(token: Token) -> Result<Self, Self::Error> {
         match token {
@@ -176,7 +186,7 @@ pub enum KeywordConst {
 }
 
 impl TryFrom<Keyword> for KeywordConst {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(keyword: Keyword) -> Result<Self, Self::Error> {
         match keyword {
@@ -184,7 +194,10 @@ impl TryFrom<Keyword> for KeywordConst {
             Keyword::False => Ok(KeywordConst::False),
             Keyword::Null => Ok(KeywordConst::Null),
             Keyword::This => Ok(KeywordConst::This),
-            _ => Err(()),
+            _ => Err(format_err!(
+                "expected one of `true`, `false`, `null`, or `this`, found `{}`",
+                keyword
+            )),
         }
     }
 }
@@ -196,13 +209,13 @@ pub enum UnaryOp {
 }
 
 impl TryFrom<Token> for UnaryOp {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(token: Token) -> Result<Self, Self::Error> {
         match token {
             Token::Symbol('-') => Ok(UnaryOp::Minus),
             Token::Symbol('~') => Ok(UnaryOp::Not),
-            _ => Err(()),
+            _ => Err(format_err!("`{}` is not a valid unary operator", token)),
         }
     }
 }
@@ -221,7 +234,7 @@ pub enum BinaryOp {
 }
 
 impl TryFrom<Token> for BinaryOp {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(token: Token) -> Result<Self, Self::Error> {
         match token {
@@ -234,7 +247,7 @@ impl TryFrom<Token> for BinaryOp {
             Token::Symbol('<') => Ok(BinaryOp::LessThan),
             Token::Symbol('>') => Ok(BinaryOp::GreaterThan),
             Token::Symbol('=') => Ok(BinaryOp::Equal),
-            _ => Err(()),
+            _ => Err(format_err!("`{}` is not a valid binary operator", token)),
         }
     }
 }
@@ -249,7 +262,7 @@ impl<'a> Parser<'a> {
         Parser { tokens }
     }
 
-    pub fn parse(&mut self) -> Option<Class> {
+    pub fn parse(&mut self) -> Result<Class, Error> {
         self.expect(&Token::Keyword(Keyword::Class))?;
         let name = self.consume_identifier()?;
 
@@ -258,10 +271,10 @@ impl<'a> Parser<'a> {
         let subs = self.parse_subroutines()?;
         self.expect_symbol('}')?;
 
-        Some(Class { name, vars, subs })
+        Ok(Class { name, vars, subs })
     }
 
-    fn parse_class_vars(&mut self) -> Option<Vec<ClassVars>> {
+    fn parse_class_vars(&mut self) -> Result<Vec<ClassVars>, Error> {
         let mut vars = Vec::new();
 
         loop {
@@ -278,10 +291,10 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Some(vars)
+        Ok(vars)
     }
 
-    fn parse_identifiers_list(&mut self) -> Option<Vec<String>> {
+    fn parse_identifiers_list(&mut self) -> Result<Vec<String>, Error> {
         let mut names = vec![self.consume_identifier()?];
 
         while self.peek_symbol(';').is_none() {
@@ -289,10 +302,10 @@ impl<'a> Parser<'a> {
             names.push(self.consume_identifier()?);
         }
 
-        Some(names)
+        Ok(names)
     }
 
-    fn parse_subroutines(&mut self) -> Option<Vec<Subroutine>> {
+    fn parse_subroutines(&mut self) -> Result<Vec<Subroutine>, Error> {
         let mut subs = Vec::new();
 
         while self.peek_symbol('}').is_none() {
@@ -317,10 +330,10 @@ impl<'a> Parser<'a> {
             });
         }
 
-        Some(subs)
+        Ok(subs)
     }
 
-    fn parse_params(&mut self) -> Option<Vec<Param>> {
+    fn parse_params(&mut self) -> Result<Vec<Param>, Error> {
         let mut params = Vec::new();
 
         if self.peek_symbol(')').is_none() {
@@ -332,21 +345,23 @@ impl<'a> Parser<'a> {
                 match self.peek()? {
                     Token::Symbol(',') => self.consume()?,
                     Token::Symbol(')') => break,
-                    _ => return None,
+                    token => {
+                        return Err(format_err!("expected either `,` or `)`, found `{}`", token))
+                    }
                 };
             }
         }
 
-        Some(params)
+        Ok(params)
     }
 
-    fn parse_subroutine_body(&mut self) -> Option<SubroutineBody> {
+    fn parse_subroutine_body(&mut self) -> Result<SubroutineBody, Error> {
         let vars = self.parse_local_vars()?;
         let statements = self.parse_statements()?;
-        Some(SubroutineBody { vars, statements })
+        Ok(SubroutineBody { vars, statements })
     }
 
-    fn parse_local_vars(&mut self) -> Option<Vec<LocalVars>> {
+    fn parse_local_vars(&mut self) -> Result<Vec<LocalVars>, Error> {
         let mut vars = Vec::new();
 
         loop {
@@ -364,43 +379,46 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Some(vars)
+        Ok(vars)
     }
 
-    fn parse_block(&mut self) -> Option<Vec<Statement>> {
+    fn parse_block(&mut self) -> Result<Vec<Statement>, Error> {
         self.expect_symbol('{')?;
         let block = self.parse_statements()?;
         self.expect_symbol('}')?;
 
-        Some(block)
+        Ok(block)
     }
 
-    fn parse_statements(&mut self) -> Option<Vec<Statement>> {
+    fn parse_statements(&mut self) -> Result<Vec<Statement>, Error> {
         let mut statements = Vec::new();
 
         while self.peek_symbol('}').is_none() {
             statements.push(self.parse_statement()?);
         }
 
-        Some(statements)
+        Ok(statements)
     }
 
-    fn parse_statement(&mut self) -> Option<Statement> {
+    fn parse_statement(&mut self) -> Result<Statement, Error> {
         match self.consume_keyword()? {
             Keyword::Let => self.parse_let_statement(),
             Keyword::If => self.parse_if_statement(),
             Keyword::While => self.parse_while_statement(),
             Keyword::Do => self.parse_do_statement(),
             Keyword::Return => self.parse_return_statement(),
-            _ => None,
+            keyword => Err(format_err!(
+                "expected one of `let`, `if`, `while`, `do`, or `return`, found `{}`",
+                keyword
+            )),
         }
     }
 
-    fn parse_let_statement(&mut self) -> Option<Statement> {
+    fn parse_let_statement(&mut self) -> Result<Statement, Error> {
         let lhs = self.consume_identifier()?;
 
         let index = match self.peek()? {
-            Token::Symbol('[') => self.parse_index_expr(), // TODO: propagate failure
+            Token::Symbol('[') => Some(self.parse_index_expr()?),
             _ => None,
         };
 
@@ -408,10 +426,10 @@ impl<'a> Parser<'a> {
         let rhs = self.parse_expr()?;
         self.expect_symbol(';')?;
 
-        Some(Statement::Let { lhs, index, rhs })
+        Ok(Statement::Let { lhs, index, rhs })
     }
 
-    fn parse_if_statement(&mut self) -> Option<Statement> {
+    fn parse_if_statement(&mut self) -> Result<Statement, Error> {
         self.expect_symbol('(')?;
         let condition = self.parse_expr()?;
         self.expect_symbol(')')?;
@@ -421,46 +439,46 @@ impl<'a> Parser<'a> {
         let else_body = match self.peek()? {
             Token::Keyword(Keyword::Else) => {
                 self.consume()?;
-                self.parse_block() // TODO: propagate failure
+                Some(self.parse_block()?)
             }
             _ => None,
         };
 
-        Some(Statement::If {
+        Ok(Statement::If {
             condition,
             if_body,
             else_body,
         })
     }
 
-    fn parse_while_statement(&mut self) -> Option<Statement> {
+    fn parse_while_statement(&mut self) -> Result<Statement, Error> {
         self.expect_symbol('(')?;
         let condition = self.parse_expr()?;
         self.expect_symbol(')')?;
         let body = self.parse_block()?;
 
-        Some(Statement::While { condition, body })
+        Ok(Statement::While { condition, body })
     }
 
-    fn parse_do_statement(&mut self) -> Option<Statement> {
+    fn parse_do_statement(&mut self) -> Result<Statement, Error> {
         let first = self.consume_identifier()?;
         let call = self.parse_subroutine_call(first)?;
         self.expect_symbol(';')?;
 
-        Some(Statement::Do(call))
+        Ok(Statement::Do(call))
     }
 
-    fn parse_return_statement(&mut self) -> Option<Statement> {
+    fn parse_return_statement(&mut self) -> Result<Statement, Error> {
         let expr = match self.peek()? {
             Token::Symbol(';') => None,
-            _ => self.parse_expr(),
+            _ => Some(self.parse_expr()?),
         };
         self.expect_symbol(';')?;
 
-        Some(Statement::Return(expr))
+        Ok(Statement::Return(expr))
     }
 
-    fn parse_subroutine_call(&mut self, first: String) -> Option<SubroutineCall> {
+    fn parse_subroutine_call(&mut self, first: String) -> Result<SubroutineCall, Error> {
         let (receiver, subroutine) = match self.peek()? {
             Token::Symbol('.') => {
                 self.consume()?;
@@ -473,14 +491,14 @@ impl<'a> Parser<'a> {
         let args = self.parse_expr_list()?;
         self.expect_symbol(')')?;
 
-        Some(SubroutineCall {
+        Ok(SubroutineCall {
             receiver,
             subroutine,
             args,
         })
     }
 
-    fn parse_expr_list(&mut self) -> Option<Vec<Expr>> {
+    fn parse_expr_list(&mut self) -> Result<Vec<Expr>, Error> {
         let mut exprs = Vec::new();
 
         if self.peek_symbol(')').is_none() {
@@ -488,17 +506,19 @@ impl<'a> Parser<'a> {
                 exprs.push(self.parse_expr()?);
 
                 match self.peek()? {
-                    Token::Symbol(',') => self.consume(),
+                    Token::Symbol(',') => self.consume()?,
                     Token::Symbol(')') => break,
-                    _ => return None,
+                    token => {
+                        return Err(format_err!("expected either `,` or `)`, found `{}`", token))
+                    }
                 };
             }
         }
 
-        Some(exprs)
+        Ok(exprs)
     }
 
-    fn parse_expr(&mut self) -> Option<Expr> {
+    fn parse_expr(&mut self) -> Result<Expr, Error> {
         let term = self.parse_term()?;
 
         let expr = match self.peek()? {
@@ -518,14 +538,14 @@ impl<'a> Parser<'a> {
             _ => Expr::Term(term),
         };
 
-        Some(expr)
+        Ok(expr)
     }
 
-    fn parse_term(&mut self) -> Option<Term> {
+    fn parse_term(&mut self) -> Result<Term, Error> {
         match self.consume()? {
-            Token::IntConst(n) => Some(Term::IntConst(n)),
-            Token::StrConst(s) => Some(Term::StrConst(s)),
-            Token::Keyword(kw) => kw.try_into().ok().map(Term::KeywordConst),
+            Token::IntConst(n) => Ok(Term::IntConst(n)),
+            Token::StrConst(s) => Ok(Term::StrConst(s)),
+            Token::Keyword(kw) => kw.try_into().map(Term::KeywordConst),
             Token::Identifier(id) => match self.peek()? {
                 Token::Symbol('.') | Token::Symbol('(') => {
                     self.parse_subroutine_call(id).map(Term::SubroutineCall)
@@ -533,74 +553,82 @@ impl<'a> Parser<'a> {
                 Token::Symbol('[') => self
                     .parse_index_expr()
                     .map(|index| Term::IndexedVar(id, Box::new(index))),
-                _ => Some(Term::Var(id)),
+                _ => Ok(Term::Var(id)),
             },
             Token::Symbol('(') => {
                 let expr = self.parse_expr()?;
                 self.expect_symbol(')')?;
-                Some(Term::Bracketed(Box::new(expr)))
+                Ok(Term::Bracketed(Box::new(expr)))
             }
             token @ Token::Symbol(_) => {
-                let op = token.try_into().ok()?;
+                let op = token.try_into()?;
                 let term = self.parse_term()?;
-                Some(Term::Unary(op, Box::new(term)))
+                Ok(Term::Unary(op, Box::new(term)))
             }
         }
     }
 
-    fn parse_index_expr(&mut self) -> Option<Expr> {
+    fn parse_index_expr(&mut self) -> Result<Expr, Error> {
         self.expect_symbol('[')?;
         let index = self.parse_expr()?;
         self.expect_symbol(']')?;
 
-        Some(index)
+        Ok(index)
     }
 
-    fn parse_from_keyword<T>(&mut self) -> Option<T>
+    fn parse_from_keyword<T>(&mut self) -> Result<T, Error>
     where
-        T: TryFrom<Keyword>,
+        T: TryFrom<Keyword, Error = Error>,
     {
-        self.consume_keyword().and_then(|kw| kw.try_into().ok())
+        self.consume_keyword().and_then(|kw| kw.try_into())
     }
 
-    fn parse_from_token<T>(&mut self) -> Option<T>
+    fn parse_from_token<T>(&mut self) -> Result<T, Error>
     where
-        T: TryFrom<Token>,
+        T: TryFrom<Token, Error = Error>,
     {
-        self.consume().and_then(|t| t.try_into().ok())
+        self.consume().and_then(|t| t.try_into())
     }
 
-    fn expect_symbol(&mut self, want: char) -> Option<Token> {
+    fn expect_symbol(&mut self, want: char) -> Result<Token, Error> {
         self.expect(&Token::Symbol(want))
     }
 
-    fn expect(&mut self, want: &Token) -> Option<Token> {
-        self.consume().filter(|token| token == want)
-    }
-
-    fn consume_keyword(&mut self) -> Option<Keyword> {
-        self.consume().and_then(|token| match token {
-            Token::Keyword(keyword) => Some(keyword),
-            _ => None,
+    fn expect(&mut self, want: &Token) -> Result<Token, Error> {
+        self.consume().and_then(|token| {
+            if token == *want {
+                Ok(token)
+            } else {
+                Err(format_err!("expected `{}`, found `{}`", want, token))
+            }
         })
     }
 
-    fn consume_identifier(&mut self) -> Option<String> {
+    fn consume_keyword(&mut self) -> Result<Keyword, Error> {
         self.consume().and_then(|token| match token {
-            Token::Identifier(id) => Some(id),
-            _ => None,
+            Token::Keyword(keyword) => Ok(keyword),
+            _ => Err(format_err!("expected a keyword, found `{}`", token)),
         })
     }
 
-    fn consume(&mut self) -> Option<Token> {
-        self.tokens.next()
+    fn consume_identifier(&mut self) -> Result<String, Error> {
+        self.consume().and_then(|token| match token {
+            Token::Identifier(id) => Ok(id),
+            _ => Err(format_err!("expected an identifier, found `{}`", token)),
+        })
+    }
+
+    fn consume(&mut self) -> Result<Token, Error> {
+        self.tokens.next().ok_or(err_msg("unexpected end of file"))
     }
 
     fn peek_symbol(&mut self, want: char) -> Option<&Token> {
-        self.peek().filter(|&token| token == &Token::Symbol(want))
+        self.peek()
+            .ok()
+            .filter(|&token| token == &Token::Symbol(want))
     }
 
-    fn peek(&mut self) -> Option<&Token> {
-        self.tokens.peek()
+    fn peek(&mut self) -> Result<&Token, Error> {
+        self.tokens.peek().ok_or(err_msg("unexpected end of file"))
     }
 }

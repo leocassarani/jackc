@@ -1,3 +1,5 @@
+use failure::{format_err, Error};
+use std::fmt;
 use std::iter::Peekable;
 use std::str::{Chars, FromStr};
 
@@ -8,6 +10,19 @@ pub enum Token {
     IntConst(u16),
     StrConst(String),
     Symbol(char),
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Token::Keyword(keyword) => write!(f, "{}", keyword),
+            Token::Identifier(s) => write!(f, "{}", s),
+            Token::IntConst(n) => write!(f, "{}", n),
+            // This is safe because Jack string literals can't contain escaped double quotes.
+            Token::StrConst(s) => write!(f, "\"{}\"", s),
+            Token::Symbol(ch) => write!(f, "{}", ch),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -35,8 +50,36 @@ pub enum Keyword {
     While,
 }
 
+impl fmt::Display for Keyword {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Keyword::Boolean => write!(f, "boolean"),
+            Keyword::Char => write!(f, "char"),
+            Keyword::Class => write!(f, "class"),
+            Keyword::Constructor => write!(f, "constructor"),
+            Keyword::Do => write!(f, "do"),
+            Keyword::Else => write!(f, "else"),
+            Keyword::False => write!(f, "false"),
+            Keyword::Field => write!(f, "field"),
+            Keyword::Function => write!(f, "function"),
+            Keyword::If => write!(f, "if"),
+            Keyword::Int => write!(f, "int"),
+            Keyword::Let => write!(f, "let"),
+            Keyword::Method => write!(f, "method"),
+            Keyword::Null => write!(f, "null"),
+            Keyword::Return => write!(f, "return"),
+            Keyword::Static => write!(f, "static"),
+            Keyword::This => write!(f, "this"),
+            Keyword::True => write!(f, "true"),
+            Keyword::Var => write!(f, "var"),
+            Keyword::Void => write!(f, "void"),
+            Keyword::While => write!(f, "while"),
+        }
+    }
+}
+
 impl FromStr for Keyword {
-    type Err = ();
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -61,7 +104,7 @@ impl FromStr for Keyword {
             "var" => Ok(Keyword::Var),
             "void" => Ok(Keyword::Void),
             "while" => Ok(Keyword::While),
-            _ => Err(()),
+            _ => Err(format_err!("`{}` is not a valid keyword", s)),
         }
     }
 }
@@ -192,7 +235,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn advance(&mut self) {
-        self.read_char().expect("couldn't advance: EOF reached");
+        self.read_char().expect("unexpected end of file");
     }
 
     fn read_char(&mut self) -> Option<char> {
