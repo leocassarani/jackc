@@ -100,6 +100,10 @@ fn run() -> Result<(), Error> {
         vec![compile_file(&path).unwrap_or_else(|| Err(err_msg("unsupported file extension")))?]
     };
 
+    if modules.is_empty() {
+        return Err(err_msg("missing input files"));
+    }
+
     let insts = Translator::new(&modules).translate();
 
     if matches.is_present("stdout") {
