@@ -5,8 +5,7 @@ mod helpers;
 #[test]
 fn array_test_jack_test() {
     let source = helpers::read_test_file("ArrayTest.jack");
-    let tokenizer = Tokenizer::new(&source);
-    let tokens: Vec<Token> = tokenizer.collect();
+    let tokens = Tokenizer::new(&source).tokenize().unwrap();
 
     assert_eq!(
         tokens,
@@ -158,8 +157,7 @@ fn array_test_jack_test() {
 #[test]
 fn square_game_jack_test() {
     let source = helpers::read_test_file("SquareGame.jack");
-    let tokenizer = Tokenizer::new(&source);
-    let tokens: Vec<Token> = tokenizer.collect();
+    let tokens = Tokenizer::new(&source).tokenize().unwrap();
 
     assert_eq!(
         tokens,

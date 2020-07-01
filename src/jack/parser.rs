@@ -1,7 +1,8 @@
-use super::tokenizer::{Keyword, Token, Tokenizer};
+use super::tokenizer::{Keyword, Token};
 use failure::{err_msg, format_err, Error};
 use std::convert::{TryFrom, TryInto};
 use std::iter::Peekable;
+use std::vec::IntoIter;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Class {
@@ -252,13 +253,13 @@ impl TryFrom<Token> for BinaryOp {
     }
 }
 
-pub struct Parser<'a> {
-    tokens: Peekable<Tokenizer<'a>>,
+pub struct Parser {
+    tokens: Peekable<IntoIter<Token>>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(tokenizer: Tokenizer<'a>) -> Self {
-        let tokens = tokenizer.peekable();
+impl Parser {
+    pub fn new(tokens: Vec<Token>) -> Self {
+        let tokens = tokens.into_iter().peekable();
         Parser { tokens }
     }
 

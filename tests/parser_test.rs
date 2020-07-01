@@ -5,8 +5,8 @@ mod helpers;
 #[test]
 fn array_test_jack_test() {
     let source = helpers::read_test_file("ArrayTest.jack");
-    let tokenizer = Tokenizer::new(&source);
-    let mut parser = Parser::new(tokenizer);
+    let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
+    let mut parser = Parser::new(tokens);
 
     assert_eq!(
         parser.parse().unwrap(),
@@ -156,8 +156,8 @@ fn array_test_jack_test() {
 #[test]
 fn square_main_jack_test() {
     let source = helpers::read_test_file("SquareMain.jack");
-    let tokenizer = Tokenizer::new(&source);
-    let mut parser = Parser::new(tokenizer);
+    let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
+    let mut parser = Parser::new(tokens);
 
     assert_eq!(
         parser.parse().unwrap(),
@@ -298,8 +298,8 @@ fn square_main_jack_test() {
 #[test]
 fn square_jack_test() {
     let source = helpers::read_test_file("Square.jack");
-    let tokenizer = Tokenizer::new(&source);
-    let mut parser = Parser::new(tokenizer);
+    let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
+    let mut parser = Parser::new(tokens);
 
     assert_eq!(
         parser.parse().unwrap(),
@@ -922,8 +922,8 @@ fn square_jack_test() {
 #[test]
 fn square_game_jack_test() {
     let source = helpers::read_test_file("SquareGame.jack");
-    let tokenizer = Tokenizer::new(&source);
-    let mut parser = Parser::new(tokenizer);
+    let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
+    let mut parser = Parser::new(tokens);
 
     assert_eq!(
         parser.parse().unwrap(),

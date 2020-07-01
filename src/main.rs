@@ -149,13 +149,11 @@ fn compile_file(path: &Path) -> Option<Result<Module, Error>> {
 
 fn compile_jack(path: &Path) -> Result<Module, Error> {
     let source = fs::read_to_string(path)?;
-    let tokenizer = Tokenizer::new(&source);
 
-    let mut parser = jack::Parser::new(tokenizer);
-    let class = parser.parse()?;
+    let tokens = Tokenizer::new(&source).tokenize()?;
+    let class = jack::Parser::new(tokens).parse()?;
 
-    let mut compiler = Compiler::new(&class);
-    Ok(compiler.compile())
+    Ok(Compiler::new(&class).compile())
 }
 
 fn compile_vm(path: &Path) -> Result<Module, Error> {

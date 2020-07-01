@@ -118,10 +118,14 @@ impl<'a> Tokenizer<'a> {
         let chars = input.chars().peekable();
         Tokenizer { chars }
     }
+
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, Error> {
+        self.collect()
+    }
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
-    type Item = Token;
+    type Item = Result<Token, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.skip_whitespace();
@@ -133,14 +137,14 @@ impl<'a> Iterator for Tokenizer<'a> {
                     // next token and pretend the comment wasn't there.
                     self.next()
                 } else {
-                    Some(Token::Symbol(ch))
+                    Some(Ok(Token::Symbol(ch)))
                 }
             }
-            '"' => self.read_str_const().map(Token::StrConst),
-            _ if is_symbol(ch) => Some(Token::Symbol(ch)),
-            _ if ch.is_ascii_digit() => self.read_int_const(ch).map(Token::IntConst),
-            _ if is_identifier(ch) => self.read_word(ch).map(parse_keyword_or_identifier),
-            _ => None,
+            '"' => self.read_str_const().map(Token::StrConst).map(Ok),
+            _ if is_symbol(ch) => Some(Ok(Token::Symbol(ch))),
+            _ if ch.is_ascii_digit() => self.read_int_const(ch).map(Token::IntConst).map(Ok),
+            _ if is_identifier(ch) => self.read_word(ch).map(parse_keyword_or_identifier).map(Ok),
+            _ => Some(Err(format_err!("`{}` is not a valid token", ch))),
         })
     }
 }
