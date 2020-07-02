@@ -66,6 +66,19 @@ fn run() -> Result<(), Error> {
                 .conflicts_with_all(&["asm", "bin"]),
         )
         .arg(
+            Arg::with_name("init")
+                .long("init")
+                .help("Name of the program's entry point (default: Sys.init)")
+                .takes_value(true)
+                .conflicts_with("no-init"),
+        )
+        .arg(
+            Arg::with_name("no-init")
+                .long("no-init")
+                .help("Program execution does not start from an init function")
+                .conflicts_with("init"),
+        )
+        .arg(
             Arg::with_name("output")
                 .short("o")
                 .help("Writes the output to <file>")
@@ -104,7 +117,15 @@ fn run() -> Result<(), Error> {
         return Err(err_msg("missing input files"));
     }
 
-    let insts = Translator::new(&modules).translate();
+    let mut translator = Translator::new(&modules);
+
+    if let Some(init) = matches.value_of("init") {
+        translator.init(Some(init.to_owned()));
+    } else if matches.is_present("no-init") {
+        translator.init(None);
+    }
+
+    let insts = translator.translate();
 
     if matches.is_present("stdout") {
         let stdout = io::stdout();

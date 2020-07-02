@@ -4,7 +4,10 @@ use jackc::vm::{Command, Module, Segment, Translator};
 
 fn translate_and_assemble(name: &str, cmds: Vec<Command>, init: Option<String>) -> Vec<u16> {
     let modules = &[Module::new(name.to_owned(), cmds)];
-    let mut translator = Translator::new(modules).init(init);
+
+    let mut translator = Translator::new(modules);
+    translator.init(init);
+
     asm::assemble(&translator.translate())
 }
 

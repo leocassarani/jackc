@@ -22,9 +22,8 @@ impl<'a> Translator<'a> {
         }
     }
 
-    pub fn init(mut self, init: Option<String>) -> Self {
+    pub fn init(&mut self, init: Option<String>) {
         self.init = init;
-        self
     }
 
     pub fn translate(&mut self) -> Vec<Instruction> {
