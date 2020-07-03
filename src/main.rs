@@ -178,7 +178,7 @@ fn compile_jack(path: &Path) -> Result<Module, Error> {
     let tokens = Tokenizer::new(&source).tokenize()?;
     let class = jack::Parser::new(tokens).parse()?;
 
-    Ok(Compiler::new(&class).compile())
+    Compiler::new(&class).compile()
 }
 
 fn compile_vm(path: &Path) -> Result<Module, Error> {

@@ -8,10 +8,10 @@ fn seven_jack_test() {
     let source = helpers::read_test_file("Seven.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "Main".into(),
             vec![
@@ -35,10 +35,10 @@ fn convert_to_bin_jack_test() {
     let source = helpers::read_test_file("ConvertToBin.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "Main".into(),
             vec![
@@ -167,10 +167,10 @@ fn square_jack_test() {
     let source = helpers::read_test_file("Square.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "Square".into(),
             vec![
@@ -488,10 +488,10 @@ fn square_game_jack_test() {
     let source = helpers::read_test_file("SquareGame.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "SquareGame".into(),
             vec![
@@ -684,10 +684,10 @@ fn square_main_jack_test() {
     let source = helpers::read_test_file("SquareMain.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "Main".into(),
             vec![
@@ -781,10 +781,10 @@ fn average_jack_test() {
     let source = helpers::read_test_file("Average.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "Main".into(),
             vec![
@@ -945,10 +945,10 @@ fn bat_jack_test() {
     let source = helpers::read_test_file("Bat.jack");
     let tokens = Tokenizer::new(&source).tokenize().expect("tokenizer error");
     let class = Parser::new(tokens).parse().expect("parsing error");
-    let mut compiler = Compiler::new(&class);
+    let module = Compiler::new(&class).compile().unwrap();
 
     assert_eq!(
-        compiler.compile(),
+        module,
         Module::new(
             "Bat".into(),
             vec![

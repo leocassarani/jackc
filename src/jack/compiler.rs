@@ -2,6 +2,7 @@ use super::parser::*;
 use super::symbol_table::{Kind, SymbolTable, Type};
 use crate::labels::Labeller;
 use crate::vm;
+use failure::Error;
 
 pub struct Compiler<'a> {
     class: &'a Class,
@@ -18,27 +19,26 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile(&mut self) -> vm::Module {
+    pub fn compile(&mut self) -> Result<vm::Module, Error> {
         self.symbols.reset();
 
         for vars in &self.class.vars {
             for name in &vars.names {
                 self.symbols
-                    .define(name.clone(), Type::from(&vars.typ), Kind::from(&vars.kind));
+                    .define(name.clone(), Type::from(&vars.typ), Kind::from(&vars.kind))?;
             }
         }
 
-        let cmds = self
-            .class
-            .subs
-            .iter()
-            .flat_map(|sub| self.compile_subroutine(sub))
-            .collect();
+        let mut cmds = Vec::new();
+        for sub in &self.class.subs {
+            let slice = &self.compile_subroutine(sub)?;
+            cmds.extend_from_slice(slice);
+        }
 
-        vm::Module::new(self.class.name.clone(), cmds)
+        Ok(vm::Module::new(self.class.name.clone(), cmds))
     }
 
-    fn compile_subroutine(&mut self, sub: &Subroutine) -> Vec<vm::Command> {
+    fn compile_subroutine(&mut self, sub: &Subroutine) -> Result<Vec<vm::Command>, Error> {
         self.symbols.start_subroutine();
         self.labels.reset();
 
@@ -79,7 +79,7 @@ impl<'a> Compiler<'a> {
                     "this".to_owned(),
                     Type::ClassName(self.class.name.clone()),
                     Kind::Argument,
-                );
+                )?;
 
                 cmds.extend(vec![
                     vm::Command::Push(vm::Segment::Argument, 0),
@@ -91,18 +91,18 @@ impl<'a> Compiler<'a> {
 
         for param in &sub.params {
             self.symbols
-                .define(param.name.clone(), Type::from(&param.typ), Kind::Argument);
+                .define(param.name.clone(), Type::from(&param.typ), Kind::Argument)?;
         }
 
         for vars in &sub.body.vars {
             for name in &vars.names {
                 self.symbols
-                    .define(name.clone(), Type::from(&vars.typ), Kind::LocalVar);
+                    .define(name.clone(), Type::from(&vars.typ), Kind::LocalVar)?;
             }
         }
 
         cmds.extend(self.compile_statements(&sub.body.statements));
-        cmds
+        Ok(cmds)
     }
 
     fn compile_statements(&mut self, stmts: &[Statement]) -> Vec<vm::Command> {

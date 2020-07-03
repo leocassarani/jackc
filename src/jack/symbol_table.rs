@@ -1,4 +1,5 @@
 use super::parser::{ClassVarKind, VarType};
+use failure::{format_err, Error};
 use std::collections::HashMap;
 use std::convert::From;
 
@@ -73,13 +74,17 @@ impl SymbolTable {
         self.indices.remove(&Kind::LocalVar);
     }
 
-    pub fn define(&mut self, name: String, typ: Type, kind: Kind) {
+    pub fn define(&mut self, name: String, typ: Type, kind: Kind) -> Result<(), Error> {
         let index = self.next_index(kind);
 
         let symbols = match kind {
             Kind::Static | Kind::Field => &mut self.globals,
             Kind::Argument | Kind::LocalVar => &mut self.locals,
         };
+
+        if symbols.contains_key(&name) {
+            return Err(format_err!("symbol `{}` is already defined", name));
+        }
 
         symbols.insert(
             name.clone(),
@@ -90,6 +95,8 @@ impl SymbolTable {
                 index,
             },
         );
+
+        Ok(())
     }
 
     fn next_index(&mut self, kind: Kind) -> u16 {
@@ -113,19 +120,25 @@ mod tests {
     fn test_define_global_vars() {
         let mut symbols = SymbolTable::new();
 
-        symbols.define(
-            "square".into(),
-            Type::ClassName("Square".into()),
-            Kind::Field,
-        );
+        symbols
+            .define(
+                "square".into(),
+                Type::ClassName("Square".into()),
+                Kind::Field,
+            )
+            .unwrap();
 
-        symbols.define("direction".into(), Type::Int, Kind::Field);
+        symbols
+            .define("direction".into(), Type::Int, Kind::Field)
+            .unwrap();
 
-        symbols.define(
-            "instance".into(),
-            Type::ClassName("PongGame".into()),
-            Kind::Static,
-        );
+        symbols
+            .define(
+                "instance".into(),
+                Type::ClassName("PongGame".into()),
+                Kind::Static,
+            )
+            .unwrap();
 
         assert_eq!(
             symbols.get("square"),
@@ -165,14 +178,28 @@ mod tests {
         let mut symbols = SymbolTable::new();
         symbols.start_subroutine();
 
-        symbols.define("Ax".into(), Type::Int, Kind::Argument);
-        symbols.define("Ay".into(), Type::Int, Kind::Argument);
-        symbols.define("Asize".into(), Type::Int, Kind::Argument);
+        symbols
+            .define("Ax".into(), Type::Int, Kind::Argument)
+            .unwrap();
+        symbols
+            .define("Ay".into(), Type::Int, Kind::Argument)
+            .unwrap();
+        symbols
+            .define("Asize".into(), Type::Int, Kind::Argument)
+            .unwrap();
 
-        symbols.define("a".into(), Type::ClassName("Array".into()), Kind::LocalVar);
-        symbols.define("length".into(), Type::Int, Kind::LocalVar);
-        symbols.define("i".into(), Type::Int, Kind::LocalVar);
-        symbols.define("sum".into(), Type::Int, Kind::LocalVar);
+        symbols
+            .define("a".into(), Type::ClassName("Array".into()), Kind::LocalVar)
+            .unwrap();
+        symbols
+            .define("length".into(), Type::Int, Kind::LocalVar)
+            .unwrap();
+        symbols
+            .define("i".into(), Type::Int, Kind::LocalVar)
+            .unwrap();
+        symbols
+            .define("sum".into(), Type::Int, Kind::LocalVar)
+            .unwrap();
 
         assert_eq!(
             symbols.get("Ax"),
@@ -251,15 +278,25 @@ mod tests {
     fn test_nested_symbol_tables() {
         let mut symbols = SymbolTable::new();
 
-        symbols.define("nAccounts".into(), Type::Int, Kind::Static);
-        symbols.define("id".into(), Type::Int, Kind::Field);
-        symbols.define("name".into(), Type::Int, Kind::Field);
-        symbols.define("balance".into(), Type::Int, Kind::Field);
+        symbols
+            .define("nAccounts".into(), Type::Int, Kind::Static)
+            .unwrap();
+        symbols.define("id".into(), Type::Int, Kind::Field).unwrap();
+        symbols
+            .define("name".into(), Type::Int, Kind::Field)
+            .unwrap();
+        symbols
+            .define("balance".into(), Type::Int, Kind::Field)
+            .unwrap();
 
         symbols.start_subroutine();
 
-        symbols.define("sum".into(), Type::Int, Kind::Argument);
-        symbols.define("status".into(), Type::Boolean, Kind::LocalVar);
+        symbols
+            .define("sum".into(), Type::Int, Kind::Argument)
+            .unwrap();
+        symbols
+            .define("status".into(), Type::Boolean, Kind::LocalVar)
+            .unwrap();
 
         assert_eq!(
             symbols.get("sum"),
@@ -306,13 +343,17 @@ mod tests {
             })
         );
 
-        symbols.define("x".into(), Type::Int, Kind::Argument);
+        symbols
+            .define("x".into(), Type::Int, Kind::Argument)
+            .unwrap();
 
-        symbols.define(
-            "transactions".into(),
-            Type::ClassName("Array".into()),
-            Kind::LocalVar,
-        );
+        symbols
+            .define(
+                "transactions".into(),
+                Type::ClassName("Array".into()),
+                Kind::LocalVar,
+            )
+            .unwrap();
 
         assert_eq!(
             symbols.get("x"),
@@ -333,5 +374,18 @@ mod tests {
                 index: 0,
             })
         );
+    }
+
+    #[test]
+    fn test_redefinition_error() {
+        let mut symbols = SymbolTable::new();
+
+        assert!(symbols.define("x".into(), Type::Int, Kind::Field).is_ok());
+
+        assert!(symbols.define("x".into(), Type::Int, Kind::Field).is_err());
+
+        assert!(symbols
+            .define("x".into(), Type::Boolean, Kind::Static)
+            .is_err());
     }
 }
