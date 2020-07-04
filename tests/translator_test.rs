@@ -8,7 +8,7 @@ fn translate_and_assemble(name: &str, cmds: Vec<Command>, init: Option<String>) 
     let mut translator = Translator::new(modules);
     translator.init(init);
 
-    asm::assemble(&translator.translate())
+    asm::assemble(&translator.translate().unwrap())
 }
 
 #[test]
@@ -448,7 +448,7 @@ fn finbonacci_element() {
     ];
 
     let mut translator = Translator::new(modules);
-    let rom = asm::assemble(&translator.translate());
+    let rom = asm::assemble(&translator.translate().unwrap());
 
     let mut emulator = Emulator::new(&rom);
     emulator.run(6000);
@@ -515,7 +515,7 @@ fn statics_test() {
     ];
 
     let mut translator = Translator::new(modules);
-    let rom = asm::assemble(&translator.translate());
+    let rom = asm::assemble(&translator.translate().unwrap());
 
     let mut emulator = Emulator::new(&rom);
     emulator.run(2500);

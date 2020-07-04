@@ -2,8 +2,11 @@ use super::*;
 use crate::asm;
 use crate::asm::Instruction;
 use crate::labels::Labeller;
+use failure::{format_err, Error};
 
 const DEFAULT_INIT: &str = "Sys.init";
+
+type Result<T> = std::result::Result<T, Error>;
 
 pub struct Translator<'a> {
     modules: &'a [Module],
@@ -26,7 +29,7 @@ impl<'a> Translator<'a> {
         self.init = init;
     }
 
-    pub fn translate(&mut self) -> Vec<Instruction> {
+    pub fn translate(&mut self) -> Result<Vec<Instruction>> {
         let mut prog = vec![
             asm!(@256),
             asm!(D = A),
@@ -49,32 +52,30 @@ impl<'a> Translator<'a> {
         }
 
         for module in self.modules {
-            prog.extend(
-                module
-                    .cmds
-                    .iter()
-                    .flat_map(|cmd| self.translate_cmd(module, cmd)),
-            );
+            for cmd in &module.cmds {
+                prog.extend(self.translate_cmd(module, cmd)?);
+            }
         }
 
-        prog
+        Ok(prog)
     }
 
-    fn translate_cmd(&mut self, module: &Module, cmd: &'a Command) -> Vec<Instruction> {
-        match cmd {
+    fn translate_cmd(&mut self, module: &Module, cmd: &'a Command) -> Result<Vec<Instruction>> {
+        let instr = match cmd {
             Command::Add => self.translate_binary_op(asm!(M = D + M)),
             Command::Sub => self.translate_binary_op(asm!(M = M - D)),
             Command::Neg => self.translate_unary_op(asm!(M = -M)),
             Command::And => self.translate_binary_op(asm!(M = D & M)),
             Command::Or => self.translate_binary_op(asm!(M = D | M)),
             Command::Not => self.translate_unary_op(asm!(M = !M)),
-            Command::Eq | Command::Gt | Command::Lt => self.translate_comparison(cmd),
+            Command::Eq | Command::Gt | Command::Lt => self.translate_comparison(cmd)?,
             Command::Pop(Segment::Pointer, 0) => self.translate_pop(&[asm!(@"THIS")]),
             Command::Pop(Segment::Pointer, 1) => self.translate_pop(&[asm!(@"THAT")]),
-            Command::Pop(Segment::Temp, idx) => self.translate_pop(&[temp_register(*idx)]),
+            Command::Pop(Segment::Temp, idx) => self.translate_pop(&[temp_register(*idx)?]),
             Command::Pop(Segment::Static, idx) => self.translate_pop(&[static_addr(module, *idx)]),
             Command::Pop(segment, idx) => {
-                let register = segment_register(*segment);
+                let register = segment_register(*segment)?;
+
                 match idx {
                     0 => self.translate_pop(&[register, asm!(A = M)]),
                     1..=6 => {
@@ -106,13 +107,14 @@ impl<'a> Translator<'a> {
                 self.translate_push(&[asm!(@"THAT"), asm!(D = M)])
             }
             Command::Push(Segment::Temp, idx) => {
-                self.translate_push(&[temp_register(*idx), asm!(D = M)])
+                self.translate_push(&[temp_register(*idx)?, asm!(D = M)])
             }
             Command::Push(Segment::Static, idx) => {
                 self.translate_push(&[static_addr(module, *idx), asm!(D = M)])
             }
             Command::Push(segment, idx) => {
-                let register = segment_register(*segment);
+                let register = segment_register(*segment)?;
+
                 match idx {
                     0 => self.translate_push(&[register, asm!(A = M), asm!(D = M)]),
                     1 => self.translate_push(&[register, asm!(A = M + 1), asm!(D = M)]),
@@ -137,7 +139,9 @@ impl<'a> Translator<'a> {
             Command::Function(func, locals) => self.translate_function(func, *locals),
             Command::Call(func, args) => self.translate_call(func.to_owned(), *args),
             Command::Return => vec![asm!(@"RETURN"), asm!(0;JMP)],
-        }
+        };
+
+        Ok(instr)
     }
 
     fn translate_unary_op(&self, op: Instruction) -> Vec<Instruction> {
@@ -154,21 +158,21 @@ impl<'a> Translator<'a> {
         ]
     }
 
-    fn translate_comparison(&mut self, cmd: &Command) -> Vec<Instruction> {
+    fn translate_comparison(&mut self, cmd: &Command) -> Result<Vec<Instruction>> {
         let (label, op) = match cmd {
-            Command::Eq => (self.labeller.generate("RET_ADDRESS_EQ"), asm!(@"EQ")),
-            Command::Gt => (self.labeller.generate("RET_ADDRESS_GT"), asm!(@"GT")),
-            Command::Lt => (self.labeller.generate("RET_ADDRESS_LT"), asm!(@"LT")),
-            _ => panic!("unexpected comparison command: {}", cmd),
-        };
+            Command::Eq => Ok((self.labeller.generate("RET_ADDRESS_EQ"), asm!(@"EQ"))),
+            Command::Gt => Ok((self.labeller.generate("RET_ADDRESS_GT"), asm!(@"GT"))),
+            Command::Lt => Ok((self.labeller.generate("RET_ADDRESS_LT"), asm!(@"LT"))),
+            _ => Err(format_err!("unexpected comparison command `{}`", cmd)),
+        }?;
 
-        vec![
+        Ok(vec![
             asm!(@label.clone()),
             asm!(D = A),
             op,
             asm!(0;JMP),
             asm!((label)),
-        ]
+        ])
     }
 
     fn translate_pop(&self, write: &[Instruction]) -> Vec<Instruction> {
@@ -447,27 +451,27 @@ fn call() -> Vec<Instruction> {
     ]
 }
 
-fn temp_register(idx: u16) -> Instruction {
+fn temp_register(idx: u16) -> Result<Instruction> {
     match idx {
-        0 => asm!(@"R5"),
-        1 => asm!(@"R6"),
-        2 => asm!(@"R7"),
-        3 => asm!(@"R8"),
-        4 => asm!(@"R9"),
-        5 => asm!(@"R10"),
-        6 => asm!(@"R11"),
-        7 => asm!(@"R12"),
-        _ => panic!("invalid temp segment offset: {}", idx),
+        0 => Ok(asm!(@"R5")),
+        1 => Ok(asm!(@"R6")),
+        2 => Ok(asm!(@"R7")),
+        3 => Ok(asm!(@"R8")),
+        4 => Ok(asm!(@"R9")),
+        5 => Ok(asm!(@"R10")),
+        6 => Ok(asm!(@"R11")),
+        7 => Ok(asm!(@"R12")),
+        _ => Err(format_err!("`{}` is not a valid temp segment index", idx)),
     }
 }
 
-fn segment_register(seg: Segment) -> Instruction {
+fn segment_register(seg: Segment) -> Result<Instruction> {
     match seg {
-        Segment::Argument => asm!(@"ARG"),
-        Segment::Local => asm!(@"LCL"),
-        Segment::This => asm!(@"THIS"),
-        Segment::That => asm!(@"THAT"),
-        _ => panic!("unexpected segment: {}", seg),
+        Segment::Argument => Ok(asm!(@"ARG")),
+        Segment::Local => Ok(asm!(@"LCL")),
+        Segment::This => Ok(asm!(@"THIS")),
+        Segment::That => Ok(asm!(@"THAT")),
+        _ => Err(format_err!("unexpected segment `{}`", seg)),
     }
 }
 

@@ -11,6 +11,8 @@ use std::{
     process,
 };
 
+type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Format {
     Asm,
@@ -38,7 +40,7 @@ fn main() {
     });
 }
 
-fn run() -> Result<(), Error> {
+fn run() -> Result<()> {
     let matches = App::new("jackc")
         .version(crate_version!())
         .about("A compiler for the Jack programming language")
@@ -125,7 +127,7 @@ fn run() -> Result<(), Error> {
         translator.init(None);
     }
 
-    let insts = translator.translate();
+    let insts = translator.translate()?;
 
     if matches.is_present("stdout") {
         let stdout = io::stdout();
@@ -145,7 +147,7 @@ fn run() -> Result<(), Error> {
     }
 }
 
-fn compile_dir(dir: &Path) -> Result<Vec<Module>, Error> {
+fn compile_dir(dir: &Path) -> Result<Vec<Module>> {
     let mut mods = Vec::new();
 
     for entry in dir.read_dir()? {
@@ -160,7 +162,7 @@ fn compile_dir(dir: &Path) -> Result<Vec<Module>, Error> {
     Ok(mods)
 }
 
-fn compile_file(path: &Path) -> Option<Result<Module, Error>> {
+fn compile_file(path: &Path) -> Option<Result<Module>> {
     path.extension().and_then(|ext| {
         if ext == "jack" {
             Some(compile_jack(path))
@@ -172,7 +174,7 @@ fn compile_file(path: &Path) -> Option<Result<Module, Error>> {
     })
 }
 
-fn compile_jack(path: &Path) -> Result<Module, Error> {
+fn compile_jack(path: &Path) -> Result<Module> {
     let source = fs::read_to_string(path)?;
 
     let tokens = Tokenizer::new(&source).tokenize()?;
@@ -181,7 +183,7 @@ fn compile_jack(path: &Path) -> Result<Module, Error> {
     Compiler::new(&class).compile()
 }
 
-fn compile_vm(path: &Path) -> Result<Module, Error> {
+fn compile_vm(path: &Path) -> Result<Module> {
     let name = path
         .file_stem()
         .ok_or_else(|| err_msg("invalid file name"))?
@@ -194,7 +196,7 @@ fn compile_vm(path: &Path) -> Result<Module, Error> {
     Ok(Module::new(name, cmds))
 }
 
-fn write_output<W>(out: &mut W, insts: &[Instruction], format: Format) -> Result<(), Error>
+fn write_output<W>(out: &mut W, insts: &[Instruction], format: Format) -> Result<()>
 where
     W: Write,
 {
