@@ -3,6 +3,10 @@ name = "jackc"
 version = "0.1.0"
 authors = ["Leo Cassarani <me@leocassarani.net>"]
 edition = "2018"
+description = "A simple, end-to-end compiler for the Jack programming language."
+readme = "README.md"
+repository = "https://github.com/leocassarani/jackc"
+license = "Apache-2.0"
 
 [dependencies]
 clap = "2.33.0"
