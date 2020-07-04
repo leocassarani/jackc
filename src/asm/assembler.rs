@@ -1,4 +1,5 @@
 use super::instruction::*;
+use failure::{format_err, Error};
 use std::collections::HashMap;
 
 const DEFAULT_SYMBOLS: &[(&str, u16)] = &[
@@ -27,7 +28,7 @@ const DEFAULT_SYMBOLS: &[(&str, u16)] = &[
     ("KBD", 0x6000),
 ];
 
-pub fn assemble(prog: &[Instruction]) -> Vec<u16> {
+pub fn assemble(prog: &[Instruction]) -> Result<Vec<u16>, Error> {
     let mut symbols: HashMap<String, u16> = DEFAULT_SYMBOLS
         .into_iter()
         .map(|&(sym, idx)| (sym.to_owned(), idx))
@@ -36,93 +37,47 @@ pub fn assemble(prog: &[Instruction]) -> Vec<u16> {
     let mut unlabelled = Vec::new();
     let mut idx = 0;
 
-    prog.iter().for_each(|instr| match instr {
-        Instruction::A(_) | Instruction::C(_, _, _) => {
-            unlabelled.push(instr);
-            idx += 1;
-        }
-        Instruction::Label(label) => {
-            if symbols.contains_key(label) {
-                panic!("can't define the label twice: {}", label);
-            } else {
-                symbols.insert(label.to_owned(), idx);
+    for instr in prog {
+        match instr {
+            Instruction::A(_) | Instruction::C(_, _, _) => {
+                unlabelled.push(instr);
+                idx += 1;
+            }
+            Instruction::Label(label) => {
+                if symbols.contains_key(label) {
+                    return Err(format_err!("label `{}` is already defined", label));
+                } else {
+                    symbols.insert(label.to_owned(), idx);
+                }
             }
         }
-    });
+    }
 
     let mut next_static = 16;
 
     unlabelled
         .iter()
         .map(|instr| match instr {
-            Instruction::A(Load::Constant(n)) => *n,
+            Instruction::A(Load::Constant(n)) => Ok(*n),
             Instruction::A(Load::Symbol(symbol)) => match symbols.get(symbol) {
-                Some(idx) => *idx,
+                Some(idx) => Ok(*idx),
                 None => {
                     let idx = symbols.entry(symbol.to_owned()).or_insert_with(|| {
                         let idx = next_static;
                         next_static += 1;
                         idx
                     });
-                    *idx
+                    Ok(*idx)
                 }
             },
             Instruction::C(dest, comp, jump) => {
-                let (d1, d2, d3) = match dest {
-                    None => (0, 0, 0),
-                    Some(Dest::M) => (0, 0, 1),
-                    Some(Dest::D) => (0, 1, 0),
-                    Some(Dest::MD) => (0, 1, 1),
-                    Some(Dest::A) => (1, 0, 0),
-                    Some(Dest::AM) => (1, 0, 1),
-                    Some(Dest::AD) => (1, 1, 0),
-                    Some(Dest::AMD) => (1, 1, 1),
-                };
+                let (d1, d2, d3) = dest_bits(*dest);
+                let (a, c1, c2, c3, c4, c5, c6) = comp_bits(*comp);
+                let (j1, j2, j3) = jump_bits(*jump);
 
-                let (a, c1, c2, c3, c4, c5, c6) = match comp {
-                    Comp::Zero => (0, 1, 0, 1, 0, 1, 0),
-                    Comp::One => (0, 1, 1, 1, 1, 1, 1),
-                    Comp::NegOne => (0, 1, 1, 1, 0, 1, 0),
-                    Comp::D => (0, 0, 0, 1, 1, 0, 0),
-                    Comp::A => (0, 1, 1, 0, 0, 0, 0),
-                    Comp::NotD => (0, 0, 0, 1, 1, 0, 1),
-                    Comp::NotA => (0, 1, 1, 0, 0, 0, 1),
-                    Comp::NegD => (0, 0, 0, 1, 1, 1, 1),
-                    Comp::NegA => (0, 1, 1, 0, 0, 1, 1),
-                    Comp::DPlusOne => (0, 0, 1, 1, 1, 1, 1),
-                    Comp::APlusOne => (0, 1, 1, 0, 1, 1, 1),
-                    Comp::DMinusOne => (0, 0, 0, 1, 1, 1, 0),
-                    Comp::AMinusOne => (0, 1, 1, 0, 0, 1, 0),
-                    Comp::DPlusA => (0, 0, 0, 0, 0, 1, 0),
-                    Comp::DMinusA => (0, 0, 1, 0, 0, 1, 1),
-                    Comp::AMinusD => (0, 0, 0, 0, 1, 1, 1),
-                    Comp::DAndA => (0, 0, 0, 0, 0, 0, 0),
-                    Comp::DOrA => (0, 0, 1, 0, 1, 0, 1),
-                    Comp::M => (1, 1, 1, 0, 0, 0, 0),
-                    Comp::NotM => (1, 1, 1, 0, 0, 0, 1),
-                    Comp::NegM => (1, 1, 1, 0, 0, 1, 1),
-                    Comp::MPlusOne => (1, 1, 1, 0, 1, 1, 1),
-                    Comp::MMinusOne => (1, 1, 1, 0, 0, 1, 0),
-                    Comp::DPlusM => (1, 0, 0, 0, 0, 1, 0),
-                    Comp::DMinusM => (1, 0, 1, 0, 0, 1, 1),
-                    Comp::MMinusD => (1, 0, 0, 0, 1, 1, 1),
-                    Comp::DAndM => (1, 0, 0, 0, 0, 0, 0),
-                    Comp::DOrM => (1, 0, 1, 0, 1, 0, 1),
-                };
-
-                let (j1, j2, j3) = match jump {
-                    None => (0, 0, 0),
-                    Some(Jump::JGT) => (0, 0, 1),
-                    Some(Jump::JEQ) => (0, 1, 0),
-                    Some(Jump::JGE) => (0, 1, 1),
-                    Some(Jump::JLT) => (1, 0, 0),
-                    Some(Jump::JNE) => (1, 0, 1),
-                    Some(Jump::JLE) => (1, 1, 0),
-                    Some(Jump::JMP) => (1, 1, 1),
-                };
-
-                0b1110000000000000
-                    | a << 12
+                Ok(
+                    0x07 << 13 // The highest 3 bits are always set in a C-instruction
+                    | a  << 12
                     | c1 << 11
                     | c2 << 10
                     | c3 << 9
@@ -134,9 +89,71 @@ pub fn assemble(prog: &[Instruction]) -> Vec<u16> {
                     | d3 << 3
                     | j1 << 2
                     | j2 << 1
-                    | j3
+                    | j3,
+                )
             }
-            Instruction::Label(label) => panic!("unexpected label instruction: {}", label),
+            Instruction::Label(label) => {
+                Err(format_err!("unexpected label instruction `{}`", label))
+            }
         })
         .collect()
+}
+
+fn dest_bits(dest: Option<Dest>) -> (u16, u16, u16) {
+    match dest {
+        None => (0, 0, 0),
+        Some(Dest::M) => (0, 0, 1),
+        Some(Dest::D) => (0, 1, 0),
+        Some(Dest::MD) => (0, 1, 1),
+        Some(Dest::A) => (1, 0, 0),
+        Some(Dest::AM) => (1, 0, 1),
+        Some(Dest::AD) => (1, 1, 0),
+        Some(Dest::AMD) => (1, 1, 1),
+    }
+}
+
+fn comp_bits(comp: Comp) -> (u16, u16, u16, u16, u16, u16, u16) {
+    match comp {
+        Comp::Zero => (0, 1, 0, 1, 0, 1, 0),
+        Comp::One => (0, 1, 1, 1, 1, 1, 1),
+        Comp::NegOne => (0, 1, 1, 1, 0, 1, 0),
+        Comp::D => (0, 0, 0, 1, 1, 0, 0),
+        Comp::A => (0, 1, 1, 0, 0, 0, 0),
+        Comp::NotD => (0, 0, 0, 1, 1, 0, 1),
+        Comp::NotA => (0, 1, 1, 0, 0, 0, 1),
+        Comp::NegD => (0, 0, 0, 1, 1, 1, 1),
+        Comp::NegA => (0, 1, 1, 0, 0, 1, 1),
+        Comp::DPlusOne => (0, 0, 1, 1, 1, 1, 1),
+        Comp::APlusOne => (0, 1, 1, 0, 1, 1, 1),
+        Comp::DMinusOne => (0, 0, 0, 1, 1, 1, 0),
+        Comp::AMinusOne => (0, 1, 1, 0, 0, 1, 0),
+        Comp::DPlusA => (0, 0, 0, 0, 0, 1, 0),
+        Comp::DMinusA => (0, 0, 1, 0, 0, 1, 1),
+        Comp::AMinusD => (0, 0, 0, 0, 1, 1, 1),
+        Comp::DAndA => (0, 0, 0, 0, 0, 0, 0),
+        Comp::DOrA => (0, 0, 1, 0, 1, 0, 1),
+        Comp::M => (1, 1, 1, 0, 0, 0, 0),
+        Comp::NotM => (1, 1, 1, 0, 0, 0, 1),
+        Comp::NegM => (1, 1, 1, 0, 0, 1, 1),
+        Comp::MPlusOne => (1, 1, 1, 0, 1, 1, 1),
+        Comp::MMinusOne => (1, 1, 1, 0, 0, 1, 0),
+        Comp::DPlusM => (1, 0, 0, 0, 0, 1, 0),
+        Comp::DMinusM => (1, 0, 1, 0, 0, 1, 1),
+        Comp::MMinusD => (1, 0, 0, 0, 1, 1, 1),
+        Comp::DAndM => (1, 0, 0, 0, 0, 0, 0),
+        Comp::DOrM => (1, 0, 1, 0, 1, 0, 1),
+    }
+}
+
+fn jump_bits(jump: Option<Jump>) -> (u16, u16, u16) {
+    match jump {
+        None => (0, 0, 0),
+        Some(Jump::JGT) => (0, 0, 1),
+        Some(Jump::JEQ) => (0, 1, 0),
+        Some(Jump::JGE) => (0, 1, 1),
+        Some(Jump::JLT) => (1, 0, 0),
+        Some(Jump::JNE) => (1, 0, 1),
+        Some(Jump::JLE) => (1, 1, 0),
+        Some(Jump::JMP) => (1, 1, 1),
+    }
 }

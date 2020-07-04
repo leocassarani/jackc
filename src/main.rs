@@ -207,12 +207,12 @@ where
             }
         }
         Format::Bin => {
-            for inst in asm::assemble(insts) {
+            for inst in asm::assemble(insts)? {
                 out.write_u16::<BigEndian>(inst)?;
             }
         }
         Format::Hack => {
-            for inst in asm::assemble(insts) {
+            for inst in asm::assemble(insts)? {
                 writeln!(out, "{:016b}", inst)?;
             }
         }
