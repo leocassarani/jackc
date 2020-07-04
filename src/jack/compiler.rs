@@ -2,7 +2,9 @@ use super::parser::*;
 use super::symbol_table::{Kind, SymbolTable, Type};
 use crate::labels::Labeller;
 use crate::vm;
-use failure::Error;
+use failure::{format_err, Error};
+
+type Result<T> = std::result::Result<T, Error>;
 
 pub struct Compiler<'a> {
     class: &'a Class,
@@ -19,7 +21,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile(&mut self) -> Result<vm::Module, Error> {
+    pub fn compile(&mut self) -> Result<vm::Module> {
         self.symbols.reset();
 
         for vars in &self.class.vars {
@@ -30,15 +32,15 @@ impl<'a> Compiler<'a> {
         }
 
         let mut cmds = Vec::new();
+
         for sub in &self.class.subs {
-            let slice = &self.compile_subroutine(sub)?;
-            cmds.extend_from_slice(slice);
+            cmds.extend(self.compile_subroutine(sub)?);
         }
 
         Ok(vm::Module::new(self.class.name.clone(), cmds))
     }
 
-    fn compile_subroutine(&mut self, sub: &Subroutine) -> Result<Vec<vm::Command>, Error> {
+    fn compile_subroutine(&mut self, sub: &Subroutine) -> Result<Vec<vm::Command>> {
         self.symbols.start_subroutine();
         self.labels.reset();
 
@@ -101,18 +103,19 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        cmds.extend(self.compile_statements(&sub.body.statements));
+        cmds.extend(self.compile_statements(&sub.body.statements)?);
         Ok(cmds)
     }
 
-    fn compile_statements(&mut self, stmts: &[Statement]) -> Vec<vm::Command> {
-        stmts
-            .iter()
-            .flat_map(|stmt| self.compile_statement(stmt))
-            .collect()
+    fn compile_statements(&mut self, stmts: &[Statement]) -> Result<Vec<vm::Command>> {
+        let mut cmds = Vec::new();
+        for stmt in stmts {
+            cmds.extend(self.compile_statement(stmt)?);
+        }
+        Ok(cmds)
     }
 
-    fn compile_statement(&mut self, stmt: &Statement) -> Vec<vm::Command> {
+    fn compile_statement(&mut self, stmt: &Statement) -> Result<Vec<vm::Command>> {
         match stmt {
             Statement::Let { lhs, index, rhs } => self.compile_let(lhs, index.as_ref(), rhs),
             Statement::If {
@@ -126,23 +129,23 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_let(&self, lhs: &str, index: Option<&Expr>, rhs: &Expr) -> Vec<vm::Command> {
-        let mut cmds = self.compile_expr(rhs);
+    fn compile_let(&self, lhs: &str, index: Option<&Expr>, rhs: &Expr) -> Result<Vec<vm::Command>> {
+        let mut cmds = self.compile_expr(rhs)?;
 
         match index {
             Some(expr) => {
-                cmds.push(self.compile_var(vm::Command::Push, lhs));
-                cmds.extend(self.compile_expr(expr));
+                cmds.push(self.compile_var(vm::Command::Push, lhs)?);
+                cmds.extend(self.compile_expr(expr)?);
                 cmds.extend(vec![
                     vm::Command::Add,
                     vm::Command::Pop(vm::Segment::Pointer, 1),
                     vm::Command::Pop(vm::Segment::That, 0),
                 ]);
             }
-            None => cmds.push(self.compile_var(vm::Command::Pop, lhs)),
+            None => cmds.push(self.compile_var(vm::Command::Pop, lhs)?),
         }
 
-        cmds
+        Ok(cmds)
     }
 
     fn compile_if(
@@ -150,12 +153,12 @@ impl<'a> Compiler<'a> {
         condition: &Expr,
         if_body: &[Statement],
         else_body: Option<&Vec<Statement>>,
-    ) -> Vec<vm::Command> {
+    ) -> Result<Vec<vm::Command>> {
         let true_label = self.labels.generate("IF_TRUE");
         let false_label = self.labels.generate("IF_FALSE");
         let end_label = self.labels.generate("IF_END");
 
-        let mut cmds = self.compile_expr(condition);
+        let mut cmds = self.compile_expr(condition)?;
 
         cmds.extend(vec![
             vm::Command::IfGoto(true_label.clone()),
@@ -163,7 +166,7 @@ impl<'a> Compiler<'a> {
             vm::Command::Label(true_label.clone()),
         ]);
 
-        cmds.extend(self.compile_statements(if_body));
+        cmds.extend(self.compile_statements(if_body)?);
 
         match else_body {
             Some(body) => {
@@ -171,7 +174,7 @@ impl<'a> Compiler<'a> {
                     vm::Command::Goto(end_label.clone()),
                     vm::Command::Label(false_label.clone()),
                 ]);
-                cmds.extend(self.compile_statements(body));
+                cmds.extend(self.compile_statements(body)?);
                 cmds.push(vm::Command::Label(end_label.clone()));
             }
             None => {
@@ -179,46 +182,46 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        cmds
+        Ok(cmds)
     }
 
-    fn compile_while(&mut self, condition: &Expr, body: &[Statement]) -> Vec<vm::Command> {
+    fn compile_while(&mut self, condition: &Expr, body: &[Statement]) -> Result<Vec<vm::Command>> {
         let exp_label = self.labels.generate("WHILE_EXP");
         let end_label = self.labels.generate("WHILE_END");
 
         let mut cmds = vec![vm::Command::Label(exp_label.clone())];
 
-        cmds.extend(self.compile_expr(condition));
+        cmds.extend(self.compile_expr(condition)?);
         cmds.extend(vec![
             vm::Command::Not,
             vm::Command::IfGoto(end_label.clone()),
         ]);
 
-        cmds.extend(self.compile_statements(body));
+        cmds.extend(self.compile_statements(body)?);
         cmds.extend(vec![
             vm::Command::Goto(exp_label.clone()),
             vm::Command::Label(end_label.clone()),
         ]);
 
-        cmds
+        Ok(cmds)
     }
 
-    fn compile_do(&self, call: &SubroutineCall) -> Vec<vm::Command> {
-        let mut cmds = self.compile_subroutine_call(call);
+    fn compile_do(&self, call: &SubroutineCall) -> Result<Vec<vm::Command>> {
+        let mut cmds = self.compile_subroutine_call(call)?;
         cmds.push(vm::Command::Pop(vm::Segment::Temp, 0));
-        cmds
+        Ok(cmds)
     }
 
-    fn compile_return(&self, value: Option<&Expr>) -> Vec<vm::Command> {
+    fn compile_return(&self, value: Option<&Expr>) -> Result<Vec<vm::Command>> {
         let mut cmds = match value {
-            Some(expr) => self.compile_expr(expr),
+            Some(expr) => self.compile_expr(expr)?,
             None => vec![vm::Command::Push(vm::Segment::Constant, 0)],
         };
         cmds.push(vm::Command::Return);
-        cmds
+        Ok(cmds)
     }
 
-    fn compile_subroutine_call(&self, call: &SubroutineCall) -> Vec<vm::Command> {
+    fn compile_subroutine_call(&self, call: &SubroutineCall) -> Result<Vec<vm::Command>> {
         let mut cmds = Vec::new();
         let mut args = call.args.len() as u16;
         let receiver: &str;
@@ -229,13 +232,14 @@ impl<'a> Compiler<'a> {
                     if let Type::ClassName(class) = &sym.typ {
                         receiver = &class;
                     } else {
-                        panic!(
-                            "can't call method {} on primitive type receiver {}",
-                            call.subroutine, recv
-                        );
+                        return Err(format_err!(
+                            "can't call method `{}` on primitive type receiver `{}`",
+                            call.subroutine,
+                            recv
+                        ));
                     }
 
-                    cmds.push(self.compile_var(vm::Command::Push, recv));
+                    cmds.push(self.compile_var(vm::Command::Push, recv)?);
                     args += 1;
                 }
                 None => receiver = &recv,
@@ -248,33 +252,33 @@ impl<'a> Compiler<'a> {
         }
 
         for arg in &call.args {
-            cmds.extend(self.compile_expr(arg));
+            cmds.extend(self.compile_expr(arg)?);
         }
 
         let name = format!("{}.{}", receiver, call.subroutine);
         cmds.push(vm::Command::Call(name, args));
 
-        cmds
+        Ok(cmds)
     }
 
-    fn compile_expr(&self, expr: &Expr) -> Vec<vm::Command> {
+    fn compile_expr(&self, expr: &Expr) -> Result<Vec<vm::Command>> {
         match expr {
             Expr::Term(term) => self.compile_term(term),
             Expr::Binary(op, left, right) => {
-                let mut cmds = self.compile_term(left);
-                cmds.extend(self.compile_expr(right).into_iter());
+                let mut cmds = self.compile_term(left)?;
+                cmds.extend(self.compile_expr(right)?);
                 cmds.push(self.compile_binary_op(*op));
-                cmds
+                Ok(cmds)
             }
         }
     }
 
-    fn compile_term(&self, term: &Term) -> Vec<vm::Command> {
+    fn compile_term(&self, term: &Term) -> Result<Vec<vm::Command>> {
         match term {
-            Term::IntConst(n) => vec![self.compile_int_const(*n)],
-            Term::StrConst(s) => self.compile_str_const(s),
-            Term::KeywordConst(kw) => self.compile_keyword(kw),
-            Term::Var(name) => vec![self.compile_var(vm::Command::Push, name)],
+            Term::IntConst(n) => Ok(vec![self.compile_int_const(*n)]),
+            Term::StrConst(s) => Ok(self.compile_str_const(s)),
+            Term::KeywordConst(kw) => Ok(self.compile_keyword(kw)),
+            Term::Var(name) => Ok(vec![self.compile_var(vm::Command::Push, name)?]),
             Term::IndexedVar(name, expr) => self.compile_indexed_var(name, expr),
             Term::SubroutineCall(call) => self.compile_subroutine_call(call),
             Term::Bracketed(expr) => self.compile_expr(expr),
@@ -317,11 +321,14 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_var<F>(&self, f: F, name: &str) -> vm::Command
+    fn compile_var<F>(&self, f: F, name: &str) -> Result<vm::Command>
     where
         F: Fn(vm::Segment, u16) -> vm::Command,
     {
-        let symbol = self.symbols.get(name).expect("undefined symbol");
+        let symbol = self
+            .symbols
+            .get(name)
+            .ok_or_else(|| format_err!("undefined symbol `{}`", name))?;
 
         let segment = match symbol.kind {
             Kind::Argument => vm::Segment::Argument,
@@ -330,24 +337,24 @@ impl<'a> Compiler<'a> {
             Kind::Static => vm::Segment::Static,
         };
 
-        f(segment, symbol.index)
+        Ok(f(segment, symbol.index))
     }
 
-    fn compile_indexed_var(&self, name: &str, expr: &Expr) -> Vec<vm::Command> {
-        let mut cmds = vec![self.compile_var(vm::Command::Push, name)];
-        cmds.extend(self.compile_expr(expr));
+    fn compile_indexed_var(&self, name: &str, expr: &Expr) -> Result<Vec<vm::Command>> {
+        let mut cmds = vec![self.compile_var(vm::Command::Push, name)?];
+        cmds.extend(self.compile_expr(expr)?);
         cmds.extend(vec![
             vm::Command::Add,
             vm::Command::Pop(vm::Segment::Pointer, 1),
             vm::Command::Push(vm::Segment::That, 0),
         ]);
-        cmds
+        Ok(cmds)
     }
 
-    fn compile_unary(&self, op: UnaryOp, term: &Term) -> Vec<vm::Command> {
-        let mut cmds = self.compile_term(term);
+    fn compile_unary(&self, op: UnaryOp, term: &Term) -> Result<Vec<vm::Command>> {
+        let mut cmds = self.compile_term(term)?;
         cmds.push(self.compile_unary_op(op));
-        cmds
+        Ok(cmds)
     }
 
     fn compile_binary_op(&self, op: BinaryOp) -> vm::Command {
