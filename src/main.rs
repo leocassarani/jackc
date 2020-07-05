@@ -46,7 +46,8 @@ fn run() -> Result<()> {
         .about("A compiler for the Jack programming language")
         .arg(
             Arg::with_name("file")
-                .help("File or directory to be compiled")
+                .help("Files or directories to be compiled")
+                .multiple(true)
                 .required(true),
         )
         .arg(
@@ -95,25 +96,24 @@ fn run() -> Result<()> {
         )
         .get_matches();
 
-    let path = matches
-        .value_of("file")
-        .map(Path::new)
+    let paths = matches
+        .values_of("file")
         .unwrap()
-        .canonicalize()?;
+        .map(|p| Path::new(p).canonicalize())
+        .collect::<io::Result<Vec<_>>>()?;
 
-    let format = if matches.is_present("asm") {
-        Format::Asm
-    } else if matches.is_present("bin") {
-        Format::Bin
-    } else {
-        Format::Hack
-    };
+    let mut modules = Vec::new();
 
-    let modules = if path.is_dir() {
-        compile_dir(&path)?
-    } else {
-        vec![compile_file(&path).unwrap_or_else(|| Err(err_msg("unsupported file extension")))?]
-    };
+    for path in &paths {
+        if path.is_dir() {
+            modules.extend(compile_dir(&path)?);
+        } else {
+            modules.push(
+                compile_file(&path)
+                    .unwrap_or_else(|| Err(err_msg("unsupported file extension")))?,
+            );
+        }
+    }
 
     if modules.is_empty() {
         return Err(err_msg("missing input files"));
@@ -129,6 +129,14 @@ fn run() -> Result<()> {
 
     let insts = translator.translate()?;
 
+    let format = if matches.is_present("asm") {
+        Format::Asm
+    } else if matches.is_present("bin") {
+        Format::Bin
+    } else {
+        Format::Hack
+    };
+
     if matches.is_present("stdout") {
         let stdout = io::stdout();
         let mut out = stdout.lock();
@@ -138,7 +146,13 @@ fn run() -> Result<()> {
             .value_of("output")
             .map(|s| s.to_owned())
             .unwrap_or_else(|| {
-                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("out");
+                // Use the stem of the first input path as the default output filename.
+                let stem = paths
+                    .get(0)
+                    .and_then(|p| p.file_stem())
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("out");
+
                 format!("{}.{}", stem, format.extension())
             });
 
