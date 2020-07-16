@@ -133,9 +133,7 @@ impl TryFrom<Token> for SubroutineType {
     fn try_from(token: Token) -> Result<Self, Self::Error> {
         match token {
             Token::Keyword(Keyword::Void) => Ok(SubroutineType::Void),
-            _ => token
-                .try_into()
-                .map(|var_type| SubroutineType::NonVoid(var_type)),
+            _ => token.try_into().map(SubroutineType::NonVoid),
         }
     }
 }
@@ -278,18 +276,13 @@ impl Parser {
     fn parse_class_vars(&mut self) -> Result<Vec<ClassVars>, Error> {
         let mut vars = Vec::new();
 
-        loop {
-            match self.peek()? {
-                Token::Keyword(Keyword::Field) | Token::Keyword(Keyword::Static) => {
-                    let kind = self.parse_from_keyword()?;
-                    let typ = self.parse_from_token()?;
-                    let names = self.parse_identifiers_list()?;
-                    self.expect_symbol(';')?;
+        while let Token::Keyword(Keyword::Field) | Token::Keyword(Keyword::Static) = self.peek()? {
+            let kind = self.parse_from_keyword()?;
+            let typ = self.parse_from_token()?;
+            let names = self.parse_identifiers_list()?;
+            self.expect_symbol(';')?;
 
-                    vars.push(ClassVars { kind, typ, names });
-                }
-                _ => break,
-            }
+            vars.push(ClassVars { kind, typ, names });
         }
 
         Ok(vars)
@@ -365,19 +358,14 @@ impl Parser {
     fn parse_local_vars(&mut self) -> Result<Vec<LocalVars>, Error> {
         let mut vars = Vec::new();
 
-        loop {
-            match self.peek()? {
-                Token::Keyword(Keyword::Var) => {
-                    self.consume()?;
+        while let Token::Keyword(Keyword::Var) = self.peek()? {
+            self.consume()?;
 
-                    let typ = self.parse_from_token()?;
-                    let names = self.parse_identifiers_list()?;
-                    self.expect_symbol(';')?;
+            let typ = self.parse_from_token()?;
+            let names = self.parse_identifiers_list()?;
+            self.expect_symbol(';')?;
 
-                    vars.push(LocalVars { typ, names });
-                }
-                _ => break,
-            }
+            vars.push(LocalVars { typ, names });
         }
 
         Ok(vars)
@@ -620,7 +608,9 @@ impl Parser {
     }
 
     fn consume(&mut self) -> Result<Token, Error> {
-        self.tokens.next().ok_or(err_msg("unexpected end of file"))
+        self.tokens
+            .next()
+            .ok_or_else(|| err_msg("unexpected end of file"))
     }
 
     fn peek_symbol(&mut self, want: char) -> Option<&Token> {
@@ -630,6 +620,8 @@ impl Parser {
     }
 
     fn peek(&mut self) -> Result<&Token, Error> {
-        self.tokens.peek().ok_or(err_msg("unexpected end of file"))
+        self.tokens
+            .peek()
+            .ok_or_else(|| err_msg("unexpected end of file"))
     }
 }

@@ -163,7 +163,7 @@ impl<'a> Compiler<'a> {
         cmds.extend(vec![
             vm::Command::IfGoto(true_label.clone()),
             vm::Command::Goto(false_label.clone()),
-            vm::Command::Label(true_label.clone()),
+            vm::Command::Label(true_label),
         ]);
 
         cmds.extend(self.compile_statements(if_body)?);
@@ -172,13 +172,13 @@ impl<'a> Compiler<'a> {
             Some(body) => {
                 cmds.extend(vec![
                     vm::Command::Goto(end_label.clone()),
-                    vm::Command::Label(false_label.clone()),
+                    vm::Command::Label(false_label),
                 ]);
                 cmds.extend(self.compile_statements(body)?);
-                cmds.push(vm::Command::Label(end_label.clone()));
+                cmds.push(vm::Command::Label(end_label));
             }
             None => {
-                cmds.push(vm::Command::Label(false_label.clone()));
+                cmds.push(vm::Command::Label(false_label));
             }
         }
 
@@ -199,8 +199,8 @@ impl<'a> Compiler<'a> {
 
         cmds.extend(self.compile_statements(body)?);
         cmds.extend(vec![
-            vm::Command::Goto(exp_label.clone()),
-            vm::Command::Label(end_label.clone()),
+            vm::Command::Goto(exp_label),
+            vm::Command::Label(end_label),
         ]);
 
         Ok(cmds)

@@ -112,6 +112,12 @@ impl SymbolTable {
     }
 }
 
+impl Default for SymbolTable {
+    fn default() -> Self {
+        SymbolTable::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

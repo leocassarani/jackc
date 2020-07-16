@@ -30,7 +30,7 @@ const DEFAULT_SYMBOLS: &[(&str, u16)] = &[
 
 pub fn assemble(prog: &[Instruction]) -> Result<Vec<u16>, Error> {
     let mut symbols: HashMap<String, u16> = DEFAULT_SYMBOLS
-        .into_iter()
+        .iter()
         .map(|&(sym, idx)| (sym.to_owned(), idx))
         .collect();
 
