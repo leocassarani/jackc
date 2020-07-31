@@ -4,6 +4,16 @@ Jackc is a simple, end-to-end compiler for the Jack programming language, which 
 
 Unlike the approach taken in the book, which separates each stage of the compiler into different programs, Jackc is designed to transform `.jack` files all the way down to the Hack machine language, which can be eecuted by the Hack CPU specified in the book, or a suitable emulator.
 
+## Installation
+
+You can install Jackc by running `cargo install`:
+
+```
+$ cargo install --git https://github.com/leocassarani/jackc
+```
+
+This will download the source code, compile it in release mode, and install the binary to `$HOME/.cargo/bin/jackc` (unless [otherwise specified](https://doc.rust-lang.org/cargo/commands/cargo-install.html)).
+
 ## Usage
 
 To compile a file containing Jack source code, simply run:
