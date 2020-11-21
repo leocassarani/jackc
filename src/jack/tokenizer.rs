@@ -1,4 +1,4 @@
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 use std::fmt;
 use std::iter::Peekable;
 use std::str::{Chars, FromStr};
@@ -104,7 +104,7 @@ impl FromStr for Keyword {
             "var" => Ok(Keyword::Var),
             "void" => Ok(Keyword::Void),
             "while" => Ok(Keyword::While),
-            _ => Err(format_err!("`{}` is not a valid keyword", s)),
+            _ => Err(anyhow!("`{}` is not a valid keyword", s)),
         }
     }
 }
@@ -144,7 +144,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             _ if is_symbol(ch) => Some(Ok(Token::Symbol(ch))),
             _ if ch.is_ascii_digit() => self.read_int_const(ch).map(Token::IntConst).map(Ok),
             _ if is_identifier(ch) => self.read_word(ch).map(parse_keyword_or_identifier).map(Ok),
-            _ => Some(Err(format_err!("`{}` is not a valid token", ch))),
+            _ => Some(Err(anyhow!("`{}` is not a valid token", ch))),
         })
     }
 }

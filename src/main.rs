@@ -1,6 +1,6 @@
+use anyhow::{anyhow, Error};
 use byteorder::{BigEndian, WriteBytesExt};
 use clap::{crate_version, App, Arg};
-use failure::{err_msg, Error};
 use jackc::asm::{self, Instruction};
 use jackc::jack::{self, Compiler, Tokenizer};
 use jackc::vm::{self, Module, Translator};
@@ -110,13 +110,13 @@ fn run() -> Result<()> {
         } else {
             modules.push(
                 compile_file(&path)
-                    .unwrap_or_else(|| Err(err_msg("unsupported file extension")))?,
+                    .unwrap_or_else(|| Err(anyhow!("unsupported file extension")))?,
             );
         }
     }
 
     if modules.is_empty() {
-        return Err(err_msg("missing input files"));
+        return Err(anyhow!("missing input files"));
     }
 
     let mut translator = Translator::new(&modules);
@@ -200,7 +200,7 @@ fn compile_jack(path: &Path) -> Result<Module> {
 fn compile_vm(path: &Path) -> Result<Module> {
     let name = path
         .file_stem()
-        .ok_or_else(|| err_msg("invalid file name"))?
+        .ok_or_else(|| anyhow!("invalid file name"))?
         .to_string_lossy()
         .into();
 

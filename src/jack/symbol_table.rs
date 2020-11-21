@@ -1,5 +1,5 @@
 use super::parser::{ClassVarKind, VarType};
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 use std::collections::HashMap;
 use std::convert::From;
 
@@ -83,7 +83,7 @@ impl SymbolTable {
         };
 
         if symbols.contains_key(&name) {
-            return Err(format_err!("symbol `{}` is already defined", name));
+            return Err(anyhow!("symbol `{}` is already defined", name));
         }
 
         symbols.insert(

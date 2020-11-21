@@ -2,7 +2,7 @@ use super::*;
 use crate::asm;
 use crate::asm::Instruction;
 use crate::labels::Labeller;
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 
 const DEFAULT_INIT: &str = "Sys.init";
 
@@ -163,7 +163,7 @@ impl<'a> Translator<'a> {
             Command::Eq => Ok((self.labeller.generate("RET_ADDRESS_EQ"), asm!(@"EQ"))),
             Command::Gt => Ok((self.labeller.generate("RET_ADDRESS_GT"), asm!(@"GT"))),
             Command::Lt => Ok((self.labeller.generate("RET_ADDRESS_LT"), asm!(@"LT"))),
-            _ => Err(format_err!("unexpected comparison command `{}`", cmd)),
+            _ => Err(anyhow!("unexpected comparison command `{}`", cmd)),
         }?;
 
         Ok(vec![
@@ -461,7 +461,7 @@ fn temp_register(idx: u16) -> Result<Instruction> {
         5 => Ok(asm!(@"R10")),
         6 => Ok(asm!(@"R11")),
         7 => Ok(asm!(@"R12")),
-        _ => Err(format_err!("`{}` is not a valid temp segment index", idx)),
+        _ => Err(anyhow!("`{}` is not a valid temp segment index", idx)),
     }
 }
 
@@ -471,7 +471,7 @@ fn segment_register(seg: Segment) -> Result<Instruction> {
         Segment::Local => Ok(asm!(@"LCL")),
         Segment::This => Ok(asm!(@"THIS")),
         Segment::That => Ok(asm!(@"THAT")),
-        _ => Err(format_err!("unexpected segment `{}`", seg)),
+        _ => Err(anyhow!("unexpected segment `{}`", seg)),
     }
 }
 

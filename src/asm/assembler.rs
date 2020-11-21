@@ -1,5 +1,5 @@
 use super::instruction::*;
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 use std::collections::HashMap;
 
 const DEFAULT_SYMBOLS: &[(&str, u16)] = &[
@@ -45,7 +45,7 @@ pub fn assemble(prog: &[Instruction]) -> Result<Vec<u16>, Error> {
             }
             Instruction::Label(label) => {
                 if symbols.contains_key(label) {
-                    return Err(format_err!("label `{}` is already defined", label));
+                    return Err(anyhow!("label `{}` is already defined", label));
                 } else {
                     symbols.insert(label.to_owned(), idx);
                 }
@@ -92,9 +92,7 @@ pub fn assemble(prog: &[Instruction]) -> Result<Vec<u16>, Error> {
                     | j3,
                 )
             }
-            Instruction::Label(label) => {
-                Err(format_err!("unexpected label instruction `{}`", label))
-            }
+            Instruction::Label(label) => Err(anyhow!("unexpected label instruction `{}`", label)),
         })
         .collect()
 }

@@ -2,7 +2,7 @@ use super::parser::*;
 use super::symbol_table::{Kind, SymbolTable, Type};
 use crate::labels::Labeller;
 use crate::vm;
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -232,7 +232,7 @@ impl<'a> Compiler<'a> {
                     if let Type::ClassName(class) = &sym.typ {
                         receiver = &class;
                     } else {
-                        return Err(format_err!(
+                        return Err(anyhow!(
                             "can't call method `{}` on primitive type receiver `{}`",
                             call.subroutine,
                             recv
@@ -328,7 +328,7 @@ impl<'a> Compiler<'a> {
         let symbol = self
             .symbols
             .get(name)
-            .ok_or_else(|| format_err!("undefined symbol `{}`", name))?;
+            .ok_or_else(|| anyhow!("undefined symbol `{}`", name))?;
 
         let segment = match symbol.kind {
             Kind::Argument => vm::Segment::Argument,

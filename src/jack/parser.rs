@@ -1,5 +1,5 @@
 use super::tokenizer::{Keyword, Token};
-use failure::{err_msg, format_err, Error};
+use anyhow::{anyhow, Error};
 use std::convert::{TryFrom, TryInto};
 use std::iter::Peekable;
 use std::vec::IntoIter;
@@ -65,7 +65,7 @@ impl TryFrom<Keyword> for ClassVarKind {
         match keyword {
             Keyword::Field => Ok(ClassVarKind::Field),
             Keyword::Static => Ok(ClassVarKind::Static),
-            _ => Err(format_err!(
+            _ => Err(anyhow!(
                 "expected either `field` or `static`, found `{}`",
                 keyword
             )),
@@ -90,7 +90,7 @@ impl TryFrom<Token> for VarType {
             Token::Keyword(Keyword::Char) => Ok(VarType::Char),
             Token::Keyword(Keyword::Boolean) => Ok(VarType::Boolean),
             Token::Identifier(id) => Ok(VarType::ClassName(id)),
-            _ => Err(format_err!(
+            _ => Err(anyhow!(
                 "expected one of `int`, `char`, `boolean`, or a class name, found `{}`",
                 token
             )),
@@ -113,7 +113,7 @@ impl TryFrom<Keyword> for SubroutineKind {
             Keyword::Constructor => Ok(SubroutineKind::Constructor),
             Keyword::Function => Ok(SubroutineKind::Function),
             Keyword::Method => Ok(SubroutineKind::Method),
-            _ => Err(format_err!(
+            _ => Err(anyhow!(
                 "expected one of `constructor`, `function`, `method`, found `{}`",
                 keyword
             )),
@@ -193,7 +193,7 @@ impl TryFrom<Keyword> for KeywordConst {
             Keyword::False => Ok(KeywordConst::False),
             Keyword::Null => Ok(KeywordConst::Null),
             Keyword::This => Ok(KeywordConst::This),
-            _ => Err(format_err!(
+            _ => Err(anyhow!(
                 "expected one of `true`, `false`, `null`, or `this`, found `{}`",
                 keyword
             )),
@@ -214,7 +214,7 @@ impl TryFrom<Token> for UnaryOp {
         match token {
             Token::Symbol('-') => Ok(UnaryOp::Minus),
             Token::Symbol('~') => Ok(UnaryOp::Not),
-            _ => Err(format_err!("`{}` is not a valid unary operator", token)),
+            _ => Err(anyhow!("`{}` is not a valid unary operator", token)),
         }
     }
 }
@@ -246,7 +246,7 @@ impl TryFrom<Token> for BinaryOp {
             Token::Symbol('<') => Ok(BinaryOp::LessThan),
             Token::Symbol('>') => Ok(BinaryOp::GreaterThan),
             Token::Symbol('=') => Ok(BinaryOp::Equal),
-            _ => Err(format_err!("`{}` is not a valid binary operator", token)),
+            _ => Err(anyhow!("`{}` is not a valid binary operator", token)),
         }
     }
 }
@@ -339,9 +339,7 @@ impl Parser {
                 match self.peek()? {
                     Token::Symbol(',') => self.consume()?,
                     Token::Symbol(')') => break,
-                    token => {
-                        return Err(format_err!("expected either `,` or `)`, found `{}`", token))
-                    }
+                    token => return Err(anyhow!("expected either `,` or `)`, found `{}`", token)),
                 };
             }
         }
@@ -396,7 +394,7 @@ impl Parser {
             Keyword::While => self.parse_while_statement(),
             Keyword::Do => self.parse_do_statement(),
             Keyword::Return => self.parse_return_statement(),
-            keyword => Err(format_err!(
+            keyword => Err(anyhow!(
                 "expected one of `let`, `if`, `while`, `do`, or `return`, found `{}`",
                 keyword
             )),
@@ -497,9 +495,7 @@ impl Parser {
                 match self.peek()? {
                     Token::Symbol(',') => self.consume()?,
                     Token::Symbol(')') => break,
-                    token => {
-                        return Err(format_err!("expected either `,` or `)`, found `{}`", token))
-                    }
+                    token => return Err(anyhow!("expected either `,` or `)`, found `{}`", token)),
                 };
             }
         }
@@ -588,7 +584,7 @@ impl Parser {
             if token == *want {
                 Ok(token)
             } else {
-                Err(format_err!("expected `{}`, found `{}`", want, token))
+                Err(anyhow!("expected `{}`, found `{}`", want, token))
             }
         })
     }
@@ -596,21 +592,21 @@ impl Parser {
     fn consume_keyword(&mut self) -> Result<Keyword, Error> {
         self.consume().and_then(|token| match token {
             Token::Keyword(keyword) => Ok(keyword),
-            _ => Err(format_err!("expected a keyword, found `{}`", token)),
+            _ => Err(anyhow!("expected a keyword, found `{}`", token)),
         })
     }
 
     fn consume_identifier(&mut self) -> Result<String, Error> {
         self.consume().and_then(|token| match token {
             Token::Identifier(id) => Ok(id),
-            _ => Err(format_err!("expected an identifier, found `{}`", token)),
+            _ => Err(anyhow!("expected an identifier, found `{}`", token)),
         })
     }
 
     fn consume(&mut self) -> Result<Token, Error> {
         self.tokens
             .next()
-            .ok_or_else(|| err_msg("unexpected end of file"))
+            .ok_or_else(|| anyhow!("unexpected end of file"))
     }
 
     fn peek_symbol(&mut self, want: char) -> Option<&Token> {
@@ -622,6 +618,6 @@ impl Parser {
     fn peek(&mut self) -> Result<&Token, Error> {
         self.tokens
             .peek()
-            .ok_or_else(|| err_msg("unexpected end of file"))
+            .ok_or_else(|| anyhow!("unexpected end of file"))
     }
 }

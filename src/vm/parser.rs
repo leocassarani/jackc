@@ -1,5 +1,5 @@
 use super::*;
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 use std::str::FromStr;
 
 pub fn parse(s: &str) -> Result<Vec<Command>, Error> {
@@ -28,7 +28,7 @@ impl FromStr for Command {
                         let index = index.parse()?;
                         Ok(Command::Pop(segment, index))
                     }
-                    got => Err(format_err!(
+                    got => Err(anyhow!(
                         "expected a segment followed by a number, found `{}`",
                         got.join(" ")
                     )),
@@ -41,7 +41,7 @@ impl FromStr for Command {
                         let index = index.parse()?;
                         Ok(Command::Push(segment, index))
                     }
-                    got => Err(format_err!(
+                    got => Err(anyhow!(
                         "expected a segment followed by a number, found `{}`",
                         got.join(" ")
                     )),
@@ -50,19 +50,19 @@ impl FromStr for Command {
             _ if s.starts_with("label") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [label] => Ok(Command::Label(label.to_string())),
-                    got => Err(format_err!("expected a label, found `{}`", got.join(" "))),
+                    got => Err(anyhow!("expected a label, found `{}`", got.join(" "))),
                 }
             }
             _ if s.starts_with("goto") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [label] => Ok(Command::Goto(label.to_string())),
-                    got => Err(format_err!("expected a label, found `{}`", got.join(" "))),
+                    got => Err(anyhow!("expected a label, found `{}`", got.join(" "))),
                 }
             }
             _ if s.starts_with("if-goto") => {
                 match s.split_whitespace().skip(1).collect::<Vec<_>>().as_slice() {
                     [label] => Ok(Command::IfGoto(label.to_string())),
-                    got => Err(format_err!("expected a label, found `{}`", got.join(" "))),
+                    got => Err(anyhow!("expected a label, found `{}`", got.join(" "))),
                 }
             }
             _ if s.starts_with("function") => {
@@ -71,7 +71,7 @@ impl FromStr for Command {
                         let locals = locals.parse()?;
                         Ok(Command::Function(function.to_string(), locals))
                     }
-                    got => Err(format_err!(
+                    got => Err(anyhow!(
                         "expected a function name followed by a number, found `{}`",
                         got.join(" ")
                     )),
@@ -83,13 +83,13 @@ impl FromStr for Command {
                         let args = args.parse()?;
                         Ok(Command::Call(function.to_string(), args))
                     }
-                    got => Err(format_err!(
+                    got => Err(anyhow!(
                         "expected a function name followed by a number, found `{}`",
                         got.join(" ")
                     )),
                 }
             }
-            _ => Err(format_err!("`{}` is not a valid VM command", s)),
+            _ => Err(anyhow!("`{}` is not a valid VM command", s)),
         }
     }
 }
@@ -107,7 +107,7 @@ impl FromStr for Segment {
             "that" => Ok(Segment::That),
             "pointer" => Ok(Segment::Pointer),
             "temp" => Ok(Segment::Temp),
-            _ => Err(format_err!("`{}` is not a valid segment", s)),
+            _ => Err(anyhow!("`{}` is not a valid segment", s)),
         }
     }
 }
