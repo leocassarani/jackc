@@ -409,7 +409,7 @@ fn nested_call() {
 }
 
 #[test]
-fn finbonacci_element() {
+fn fibonacci_element() {
     let modules = &[
         Module::new(
             "Sys".into(),
