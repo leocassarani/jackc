@@ -6,7 +6,7 @@ use jackc::jack::{self, Compiler, Tokenizer};
 use jackc::vm::{self, Module, Translator};
 use std::{
     fs::{self, File},
-    io::{self, Write},
+    io::{self, BufWriter, Write},
     path::Path,
     process,
 };
@@ -156,8 +156,9 @@ fn run() -> Result<()> {
                 format!("{}.{}", stem, format.extension())
             });
 
-        let mut file = File::create(filename)?;
-        write_output(&mut file, &insts, format)
+        let file = File::create(filename)?;
+        let mut writer = BufWriter::new(file);
+        write_output(&mut writer, &insts, format)
     }
 }
 
@@ -231,6 +232,9 @@ where
             }
         }
     };
+
+    // As we're using a BufWriter, we need to ensure all writes are flushed to disk.
+    out.flush()?;
 
     Ok(())
 }
