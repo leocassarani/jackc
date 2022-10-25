@@ -2,7 +2,7 @@ const RAM_SIZE: usize = 16 * 1024; // 32KiB
 
 pub struct Emulator<'a> {
     pub ram: RAM,
-    alu: ALU,
+    alu: Alu,
     reg: Registers,
     rom: &'a [u16],
     pc: u16,
@@ -12,7 +12,7 @@ impl<'a> Emulator<'a> {
     pub fn new(rom: &'a [u16]) -> Self {
         Emulator {
             ram: RAM::new(),
-            alu: ALU::default(),
+            alu: Alu::default(),
             reg: Registers::default(),
             rom,
             pc: 0,
@@ -93,14 +93,14 @@ impl RAM {
 }
 
 #[derive(Default)]
-struct ALU {
+struct Alu {
     out: u16,
     zero: bool,
     neg: bool,
     pos: bool,
 }
 
-impl ALU {
+impl Alu {
     pub fn load(&mut self, x: u16, y: u16, comp: [u8; 6]) {
         let x = x as i16;
         let y = y as i16;
