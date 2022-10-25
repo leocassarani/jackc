@@ -106,10 +106,10 @@ fn run() -> Result<()> {
 
     for path in &paths {
         if path.is_dir() {
-            modules.extend(compile_dir(&path)?);
+            modules.extend(compile_dir(path)?);
         } else {
             modules.push(
-                compile_file(&path)
+                compile_file(path)
                     .unwrap_or_else(|| Err(anyhow!("unsupported file extension")))?,
             );
         }

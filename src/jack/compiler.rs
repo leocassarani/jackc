@@ -230,7 +230,7 @@ impl<'a> Compiler<'a> {
             Some(recv) => match self.symbols.get(recv) {
                 Some(sym) => {
                     if let Type::ClassName(class) = &sym.typ {
-                        receiver = &class;
+                        receiver = class;
                     } else {
                         return Err(anyhow!(
                             "can't call method `{}` on primitive type receiver `{}`",
@@ -242,7 +242,7 @@ impl<'a> Compiler<'a> {
                     cmds.push(self.compile_var(vm::Command::Push, recv)?);
                     args += 1;
                 }
-                None => receiver = &recv,
+                None => receiver = recv,
             },
             None => {
                 receiver = &self.class.name;
