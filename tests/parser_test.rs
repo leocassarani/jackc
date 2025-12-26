@@ -26,7 +26,7 @@ fn array_test_jack_test() {
                         },
                         LocalVars {
                             typ: VarType::Int,
-                            names: vec!["length".into()],
+                            names: vec!["l3ngth".into()],
                         },
                         LocalVars {
                             typ: VarType::Int,
@@ -35,7 +35,7 @@ fn array_test_jack_test() {
                     ],
                     statements: vec![
                         Statement::Let {
-                            lhs: "length".into(),
+                            lhs: "l3ngth".into(),
                             index: None,
                             rhs: Expr::Term(Term::SubroutineCall(SubroutineCall {
                                 receiver: Some("Keyboard".into()),
@@ -49,7 +49,7 @@ fn array_test_jack_test() {
                             rhs: Expr::Term(Term::SubroutineCall(SubroutineCall {
                                 receiver: Some("Array".into()),
                                 subroutine: "new".into(),
-                                args: vec![Expr::Term(Term::Var("length".into()))],
+                                args: vec![Expr::Term(Term::Var("l3ngth".into()))],
                             })),
                         },
                         Statement::Let {
@@ -61,7 +61,7 @@ fn array_test_jack_test() {
                             condition: Expr::Binary(
                                 BinaryOp::LessThan,
                                 Term::Var("i".into()),
-                                Box::new(Expr::Term(Term::Var("length".into())))
+                                Box::new(Expr::Term(Term::Var("l3ngth".into())))
                             ),
                             body: vec![
                                 Statement::Let {
@@ -100,7 +100,7 @@ fn array_test_jack_test() {
                             condition: Expr::Binary(
                                 BinaryOp::LessThan,
                                 Term::Var("i".into()),
-                                Box::new(Expr::Term(Term::Var("length".into())))
+                                Box::new(Expr::Term(Term::Var("l3ngth".into())))
                             ),
                             body: vec![
                                 Statement::Let {
@@ -137,7 +137,7 @@ fn array_test_jack_test() {
                             args: vec![Expr::Binary(
                                 BinaryOp::Divide,
                                 Term::Var("sum".into()),
-                                Box::new(Expr::Term(Term::Var("length".into())))
+                                Box::new(Expr::Term(Term::Var("l3ngth".into())))
                             )],
                         }),
                         Statement::Do(SubroutineCall {

@@ -208,7 +208,9 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn read_word(&mut self, first: char) -> Option<String> {
-        self.read_while(first, is_identifier)
+        // Identifiers may contain digits, as long as they're not the first
+        // character in the word.
+        self.read_while(first, |ch| is_identifier(ch) || ch.is_ascii_digit())
     }
 
     fn read_int_const(&mut self, first: char) -> Option<u16> {
